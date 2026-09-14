@@ -10,7 +10,7 @@ async function main() {
   const width = 1280;
   const height = 720;
   const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const port = 9550;
+  const port = 9660;
   const userDataDir = `/tmp/chrome-video-${Date.now()}`;
 
   // Step 1: Ensure demo HTML exists
@@ -48,7 +48,7 @@ async function main() {
     throw new Error('Chrome debugging connection failed');
   }
 
-  const pageTab = tabs.find(t => t.url.includes(path.basename(demoHtmlPath)) || t.type === 'page');
+  const pageTab = tabs.find(t => t.url.includes(path.basename(demoHtmlPath)) || (t.type === 'page' && !t.url.startsWith('chrome:')));
   if (!pageTab) {
     chrome.kill();
     throw new Error('Could not find active demo page tab');
@@ -82,354 +82,467 @@ async function main() {
     mobile: false
   });
 
-  console.log('Injecting high-fidelity video recorder into browser session...');
+  console.log('Injecting high-fidelity canvas video recorder with real diagram capture...');
 
-  const recordingScript = `
-    new Promise(async (resolve) => {
-      // 1. Create recording canvas & video stream
-      const recCanvas = document.createElement('canvas');
-      recCanvas.width = ${width};
-      recCanvas.height = ${height};
-      recCanvas.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;pointer-events:none;display:none;';
-      document.body.appendChild(recCanvas);
-      const ctx = recCanvas.getContext('2d');
+  // Setup client-side capture pipeline inside the browser
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__ = (() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = ${width};
+        canvas.height = ${height};
+        canvas.style.cssText = 'position:fixed;top:0;left:0;z-index:999999;display:none;pointer-events:none;';
+        document.body.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
 
-      const stream = recCanvas.captureStream(30);
-      const recorder = new MediaRecorder(stream, {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 4000000
-      });
-      const chunks = [];
-      recorder.ondataavailable = e => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(blob);
-      };
-      recorder.start();
+        const stream = canvas.captureStream(30);
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 4500000
+        });
 
-      let isRecording = true;
-      let overlayTitle = '';
-      let overlaySubtitle = '';
-      let activeSection = '';
+        const chunks = [];
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
-      // Render loop
-      function renderFrame() {
-        if (!isRecording) return;
-        
-        ctx.fillStyle = '#0b0f19';
-        ctx.fillRect(0, 0, ${width}, ${height});
+        let finishPromise = new Promise(resolve => {
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result.split(',')[1]);
+            reader.readAsDataURL(blob);
+          };
+        });
 
-        if (window.renderToCanvas) {
-          window.renderToCanvas(ctx);
-        }
+        recorder.start();
 
-        // Top banner watermark
-        ctx.fillStyle = 'rgba(13, 17, 23, 0.88)';
-        ctx.fillRect(0, 0, ${width}, 44);
-        ctx.strokeStyle = '#30363d';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, 44);
-        ctx.lineTo(${width}, 44);
-        ctx.stroke();
+        let activeHud = {
+          tier: '',
+          title: '',
+          subtitle: '',
+          mode: 'diagram' // 'terminal' | 'diagram'
+        };
 
-        // Banner text
-        ctx.fillStyle = '#58a6ff';
-        ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
-        ctx.fillText('🏗️ data-archify', 24, 28);
+        let termLines = [];
 
-        ctx.fillStyle = '#8b949e';
-        ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-        ctx.fillText('— Universal Data Architecture, Lineage & Contracts Engine', 160, 28);
+        return {
+          setHud: (tier, title, subtitle) => {
+            activeHud.tier = tier;
+            activeHud.title = title;
+            activeHud.subtitle = subtitle;
+          },
+          setMode: (mode) => {
+            activeHud.mode = mode;
+          },
+          addTermLine: (line) => {
+            termLines.push(line);
+          },
+          renderFrame: (base64Jpg) => {
+            return new Promise(done => {
+              if (activeHud.mode === 'terminal') {
+                // Draw rich terminal window
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, 0, ${width}, ${height});
 
-        // Section badge (if active)
-        if (activeSection) {
-          ctx.fillStyle = '#238636';
+                // Window container
+                ctx.fillStyle = '#161b22';
+                ctx.beginPath();
+                ctx.roundRect(140, 80, ${width} - 280, ${height} - 200, 12);
+                ctx.fill();
+                ctx.strokeStyle = '#30363d';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Window header
+                ctx.fillStyle = '#21262d';
+                ctx.beginPath();
+                ctx.roundRect(140, 80, ${width} - 280, 42, [12, 12, 0, 0]);
+                ctx.fill();
+
+                // Window control dots
+                ctx.fillStyle = '#ff5f56'; ctx.beginPath(); ctx.arc(164, 101, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ffbd2e'; ctx.beginPath(); ctx.arc(184, 101, 6, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#27c93f'; ctx.beginPath(); ctx.arc(204, 101, 6, 0, Math.PI*2); ctx.fill();
+
+                ctx.fillStyle = '#8b949e';
+                ctx.font = '13px monospace';
+                ctx.fillText('terminal — data-archify CLI (TypeScript / Node.js)', 240, 106);
+
+                // Terminal text
+                ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
+                let y = 155;
+                for (const l of termLines) {
+                  if (l.startsWith('$')) {
+                    ctx.fillStyle = '#58a6ff';
+                    ctx.fillText('mauricio@macbook:~/data-archify ', 170, y);
+                    ctx.fillStyle = '#f0f6fc';
+                    ctx.fillText(l, 400, y);
+                  } else if (l.includes('[✓]') || l.includes('[✨]')) {
+                    ctx.fillStyle = '#3fb950';
+                    ctx.fillText(l, 170, y);
+                  } else {
+                    ctx.fillStyle = '#c9d1d9';
+                    ctx.fillText(l, 170, y);
+                  }
+                  y += 28;
+                }
+                drawOverlays();
+                done();
+              } else if (base64Jpg) {
+                // Draw the actual rendered web page
+                const img = new Image();
+                img.onload = () => {
+                  ctx.drawImage(img, 0, 0, ${width}, ${height});
+                  drawOverlays();
+                  done();
+                };
+                img.src = 'data:image/jpeg;base64,' + base64Jpg;
+              } else {
+                drawOverlays();
+                done();
+              }
+            });
+          },
+          finish: () => {
+            recorder.stop();
+            return finishPromise;
+          }
+        };
+
+        function drawOverlays() {
+          // Top branding watermark
+          ctx.fillStyle = 'rgba(13, 17, 23, 0.90)';
+          ctx.fillRect(0, 0, ${width}, 44);
+          ctx.strokeStyle = '#30363d';
+          ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.roundRect(${width} - 280, 10, 256, 26, 6);
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
-          ctx.fillText(activeSection, ${width} - 268, 27);
-        }
-
-        // Bottom HUD banner (if title active)
-        if (overlayTitle) {
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-          ctx.beginPath();
-          ctx.roundRect(24, ${height} - 80, ${width} - 48, 62, 10);
-          ctx.fill();
-          ctx.strokeStyle = '#38bdf8';
-          ctx.lineWidth = 1.5;
+          ctx.moveTo(0, 44);
+          ctx.lineTo(${width}, 44);
           ctx.stroke();
 
-          ctx.fillStyle = '#38bdf8';
-          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText(overlayTitle, 44, ${height} - 52);
+          ctx.fillStyle = '#58a6ff';
+          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+          ctx.fillText('🏗️ data-archify', 24, 28);
 
-          ctx.fillStyle = '#cbd5e1';
-          ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText(overlaySubtitle, 44, ${height} - 30);
-        }
+          ctx.fillStyle = '#8b949e';
+          ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+          ctx.fillText('— Universal Data Architecture, Lineage & Contracts Engine', 160, 28);
 
-        requestAnimationFrame(renderFrame);
-      }
-      requestAnimationFrame(renderFrame);
-
-      const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-      // ─── SCENE 1: Terminal CLI Execution Journey ───
-      activeSection = '1. CLI & COMPILATION';
-      const termLines = [
-        { text: '$ data-archify render --input templates/04-enterprise-full-platform.json --out enterprise.html', delay: 400 },
-        { text: '  [✓] Reading architecture definition: templates/04-enterprise-full-platform.json', delay: 300 },
-        { text: '  [✓] Loaded graph: 17 nodes, 16 edges across 9 technology tiers', delay: 300 },
-        { text: '  [✓] Running Archify topological BFS grid layout & boundary solver...', delay: 400 },
-        { text: '  [✓] Delivered publication-ready architecture: enterprise.html (9/9 checks pass)', delay: 400 },
-        { text: '  [✓] Injecting Interactive Semantic Passport & Volumetry overlays...', delay: 300 },
-        { text: '  [✓] Generated data governance report: enterprise_contracts.md', delay: 400 },
-        { text: '  [✨] Complete Enterprise Platform is ready to explore!', delay: 500 }
-      ];
-
-      let displayedLines = [];
-      window.renderToCanvas = (c) => {
-        // Draw terminal window
-        c.fillStyle = '#161b22';
-        c.beginPath();
-        c.roundRect(140, 90, ${width} - 280, ${height} - 210, 12);
-        c.fill();
-        c.strokeStyle = '#30363d';
-        c.lineWidth = 1.5;
-        c.stroke();
-
-        // Terminal header
-        c.fillStyle = '#21262d';
-        c.beginPath();
-        c.roundRect(140, 90, ${width} - 280, 42, [12, 12, 0, 0]);
-        c.fill();
-
-        // Mac dots
-        c.fillStyle = '#ff5f56'; c.beginPath(); c.arc(164, 111, 6, 0, Math.PI*2); c.fill();
-        c.fillStyle = '#ffbd2e'; c.beginPath(); c.arc(184, 111, 6, 0, Math.PI*2); c.fill();
-        c.fillStyle = '#27c93f'; c.beginPath(); c.arc(204, 111, 6, 0, Math.PI*2); c.fill();
-
-        c.fillStyle = '#8b949e';
-        c.font = '13px monospace';
-        c.fillText('terminal — data-archify CLI (TypeScript / Node.js 26)', 240, 116);
-
-        // Terminal output text
-        c.font = '14px ui-monospace, SFMono-Regular, Menlo, monospace';
-        let y = 165;
-        for (const line of displayedLines) {
-          if (line.startsWith('$')) {
-            c.fillStyle = '#58a6ff';
-            c.fillText('user@macbook:~/data-archify ', 170, y);
-            c.fillStyle = '#f0f6fc';
-            c.fillText(line, 400, y);
-          } else if (line.includes('[✓]') || line.includes('[✨]')) {
-            c.fillStyle = '#3fb950';
-            c.fillText(line, 170, y);
-          } else {
-            c.fillStyle = '#c9d1d9';
-            c.fillText(line, 170, y);
+          // Tier badge
+          if (activeHud.tier) {
+            ctx.fillStyle = '#238636';
+            ctx.beginPath();
+            ctx.roundRect(${width} - 280, 10, 256, 26, 6);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+            ctx.fillText(activeHud.tier, ${width} - 268, 27);
           }
-          y += 28;
+
+          // Bottom HUD banner
+          if (activeHud.title) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            ctx.beginPath();
+            ctx.roundRect(24, ${height} - 82, ${width} - 48, 64, 10);
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(activeHud.title, 44, ${height} - 54);
+
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(activeHud.subtitle, 44, ${height} - 32);
+          }
         }
-      };
+      })();
+    `
+  });
 
-      overlayTitle = 'Step 1: Terminal Compilation & Synthesis';
-      overlaySubtitle = 'Executing data-archify CLI to ingest templates, resolve topological graph layout, and inject contracts.';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-      for (const item of termLines) {
-        displayedLines.push(item.text);
-        await sleep(item.delay || 400);
-      }
-      await sleep(1800);
+  async function pushFrame(options = {}) {
+    let base64Jpg = null;
+    if (options.capturePage) {
+      const shot = await send('Page.captureScreenshot', { format: 'jpeg', quality: 85 });
+      base64Jpg = shot?.data || null;
+    }
+    await send('Runtime.evaluate', {
+      expression: `window.__VIDEO_RECORDER__.renderFrame(${base64Jpg ? JSON.stringify(base64Jpg) : 'null'})`,
+      awaitPromise: true
+    });
+  }
 
-      // ─── SCENE 2: Switch to Architecture Diagram ───
-      window.renderToCanvas = null;
+  async function holdScene(durationMs, capturePage = true, stepMs = 100) {
+    const steps = Math.max(1, Math.floor(durationMs / stepMs));
+    for (let i = 0; i < steps; i++) {
+      await pushFrame({ capturePage: capturePage && (i % 2 === 0) });
+      await sleep(stepMs);
+    }
+  }
 
-      // Reset view to big picture
-      activeSection = '2. FULL PLATFORM VIEW';
-      overlayTitle = 'Step 2: Big Picture Architecture (All 9 Tiers)';
-      overlaySubtitle = 'Macro architectural view with 17 components spanning Frontend, API, Storage, Lakehouse, Analytics & Reporting.';
+  // ═══════════════════════════════════════════════════════
+  // SCENE 1: Terminal CLI Compilation Journey
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 1: Terminal CLI Execution...');
+  await send('Runtime.evaluate', {
+    expression: `window.__VIDEO_RECORDER__.setMode('terminal');
+      window.__VIDEO_RECORDER__.setHud('1. CLI & COMPILATION', 'Step 1: Terminal Compilation & Synthesis', 'Executing data-archify CLI to ingest multi-tier template, resolve graph and inject contracts.');`
+  });
+
+  const cliCommands = [
+    { text: '$ data-archify render --input templates/04-enterprise-full-platform.json --out enterprise.html', delay: 800 },
+    { text: '  [✓] Reading architecture definition: templates/04-enterprise-full-platform.json', delay: 400 },
+    { text: '  [✓] Loaded graph: 17 nodes, 16 edges across 9 technology tiers', delay: 400 },
+    { text: '  [✓] Running Archify topological BFS grid layout & boundary solver...', delay: 500 },
+    { text: '  [✓] Delivered publication-ready architecture: enterprise.html (9/9 checks pass)', delay: 500 },
+    { text: '  [✓] Injecting Interactive Semantic Passport, Volumetry & Compute Sizing...', delay: 400 },
+    { text: '  [✓] Generated companion data governance report: enterprise_contracts.md', delay: 500 },
+    { text: '  [✨] Complete Enterprise Platform is ready to explore!', delay: 1000 }
+  ];
+
+  for (const cmd of cliCommands) {
+    await send('Runtime.evaluate', {
+      expression: `window.__VIDEO_RECORDER__.addTermLine(${JSON.stringify(cmd.text)})`
+    });
+    await holdScene(cmd.delay, false, 80);
+  }
+
+  await holdScene(1500, false, 80);
+
+  // ═══════════════════════════════════════════════════════
+  // SCENE 2: Big Picture Architecture Overview
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 2: Big Picture Overview...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setMode('diagram');
+      window.__VIDEO_RECORDER__.setHud('2. FULL PLATFORM VIEW', 'Step 2: Big Picture Architecture (All 9 Tiers)', 'Macro architectural view with 17 components spanning Frontend, API, Storage, Lakehouse, Analytics & Reporting.');
       if (window.Archify && Archify.focus) Archify.focus.clear();
       if (window.Archify && Archify.view) Archify.view.reset();
-      await sleep(2500);
+    `
+  });
+  await sleep(600);
+  await holdScene(3500, true, 120);
 
-      // ─── SCENE 3: Step-by-Step Interactive Drill-down ───
-      const journeySteps = [
-        {
-          nodeId: 'fe_ecommerce_web',
-          section: '3. FRONTEND TIER',
-          title: 'Tier 1 — Storefront Web App (Next.js 15 / React 19)',
-          subtitle: 'High-traffic customer shopping portal with 45,000 req/sec throughput and sub-100ms TTFB SLA.',
-          duration: 2200
-        },
-        {
-          nodeId: 'api_gateway_core',
-          section: '4. API GATEWAY',
-          title: 'Tier 2 — Amazon API Gateway (AWS 2026 Badge)',
-          subtitle: 'Handles 50k req/sec with rate limiting, JWT validation and 4.3B daily requests.',
-          duration: 2200
-        },
-        {
-          nodeId: 'sec_vault_secrets',
-          section: '5. SECURITY & SECRETS',
-          title: 'Tier 3 — AWS Secrets Manager',
-          subtitle: 'Rotates database connection strings and payment API keys every 30 days automatically.',
-          duration: 2200
-        },
-        {
-          nodeId: 'svc_order_processor',
-          section: '6. BACKEND SERVICES',
-          title: 'Tier 4 — Order Orchestrator (Node.js microservice)',
-          subtitle: 'Running on EKS Kubernetes HPA with 16 pods (64GB RAM total cluster capacity).',
-          duration: 2400
-        },
-        {
-          nodeId: 'db_aurora_orders',
-          section: '7. OPERATIONAL DATABASE',
-          title: 'Tier 5 — Amazon Aurora PostgreSQL Multi-AZ',
-          subtitle: 'ACID transactional database processing 15M orders/day with column data contract displayed.',
-          duration: 2600
-        },
-        {
-          nodeId: 'bus_order_events',
-          section: '8. MESSAGING & PUB/SUB',
-          title: 'Tier 6 — Amazon SNS Topic (order-events-stream)',
-          subtitle: 'Pub/sub broadcast fan-out delivering 25,000 msg/sec with sub-20ms delivery SLA.',
-          duration: 2200
-        },
-        {
-          nodeId: 'queue_lake_buffer',
-          section: '9. QUEUING & BUFFER',
-          title: 'Tier 7 — Amazon SQS FIFO Queue (lakehouse-ingestion.fifo)',
-          subtitle: 'Throttles spike loads, deduplicates orders, and guarantees exactly-once delivery.',
-          duration: 2200
-        },
-        {
-          nodeId: 'lake_s3_bronze',
-          section: '10. BRONZE DATA LAKE',
-          title: 'Tier 8 — Amazon S3 Bronze (Raw Immutable Lake)',
-          subtitle: 'Ingests 1.5 TB/day raw append-only Parquet logs with infinite Glacier lifecycle.',
-          duration: 2400
-        },
-        {
-          nodeId: 'job_glue_silver_etl',
-          section: '11. SILVER PROCESSING',
-          title: 'Tier 9 — AWS Glue 4.0 (Spark 3.3 Serverless)',
-          subtitle: 'Provisioned with 16 DPUs (G.2X workers, 128 GB RAM) for automatic file compaction.',
-          duration: 2400
-        },
-        {
-          nodeId: 'table_iceberg_silver',
-          section: '12. APACHE ICEBERG',
-          title: 'Tier 10 — Apache Iceberg Silver Table',
-          subtitle: 'ACID transaction layer partitioned by order_date with 900 GB/day compressed and full column lineage.',
-          duration: 2600
-        },
-        {
-          nodeId: 'proc_emr_features',
-          section: '13. EMR HEAVY PROCESSING',
-          title: 'Tier 11 — Amazon EMR 7.1 Distributed Spark Cluster',
-          subtitle: 'Heavy compute cluster: 16x r5.4xlarge instances, 2,048 GB RAM for cross-table graph feature store.',
-          duration: 2600
-        },
-        {
-          nodeId: 'proc_databricks_marts',
-          section: '14. DATABRICKS PHOTON',
-          title: 'Tier 12 — Databricks Photon Delta Live Tables',
-          subtitle: 'Vectorized query engine producing Gold KPI models daily by 05:00 UTC.',
-          duration: 2400
-        },
-        {
-          nodeId: 'table_delta_gold_kpis',
-          section: '15. DELTA LAKE GOLD',
-          title: 'Tier 13 — Delta Lake Gold Business KPIs',
-          subtitle: 'Executive metrics: GMV, Churn, Active Buyers with source lineage pointing back to Iceberg.',
-          duration: 2600
-        },
-        {
-          nodeId: 'orch_airflow_master',
-          section: '16. ORCHESTRATION',
-          title: 'Tier 14 — Apache Airflow 2.9 (Amazon MWAA)',
-          subtitle: 'Master DAG coordinating triggers, task sensors, SLA compliance, and cross-cloud synchronization.',
-          duration: 2400
-        },
-        {
-          nodeId: 'wh_snowflake_analytics',
-          section: '17. ANALYTICS WAREHOUSE',
-          title: 'Tier 15 — Snowflake Data Cloud Hub',
-          subtitle: 'Central analytical warehouse serving executive Tableau/PowerBI semantic models 24/7.',
-          duration: 2400
-        },
-        {
-          nodeId: 'dash_grafana_telemetry',
-          section: '18. OBSERVABILITY',
-          title: 'Tier 16 — Grafana Platform Observability',
-          subtitle: 'Real-time telemetry, service latency percentiles, error budgets, and queue lag monitoring.',
-          duration: 2400
-        },
-        {
-          nodeId: 'notif_ses_service',
-          section: '19. NOTIFICATIONS',
-          title: 'Tier 17 — Amazon SES Notification Hub',
-          subtitle: 'Customer transactional email service dispatching receipts and notifications (12M emails/day).',
-          duration: 2400
-        }
-      ];
+  // ═══════════════════════════════════════════════════════
+  // SCENE 3: Cadenced Step-by-Step Drill-down Through All 17 Components
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 3: Cadenced Step-by-Step Drill-down...');
 
-      for (const step of journeySteps) {
-        activeSection = step.section;
-        overlayTitle = step.title;
-        overlaySubtitle = step.subtitle;
+  const journeySteps = [
+    {
+      nodeId: 'fe_ecommerce_web',
+      tier: '3. FRONTEND TIER',
+      title: 'Tier 1 — Storefront Web App (Next.js 15 / React 19)',
+      subtitle: 'High-traffic customer shopping portal with 45,000 req/sec throughput and sub-100ms TTFB SLA.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'api_gateway_core',
+      tier: '4. API GATEWAY',
+      title: 'Tier 2 — Amazon API Gateway (AWS 2026 Badge)',
+      subtitle: 'Edge routing with rate limiting, JWT validation and 4.3B daily requests with sub-15ms overhead.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'sec_vault_secrets',
+      tier: '5. SECURITY & SECRETS',
+      title: 'Tier 3 — AWS Secrets Manager',
+      subtitle: 'Rotates database connection strings and payment API credentials every 30 days automatically.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'svc_order_processor',
+      tier: '6. BACKEND SERVICES',
+      title: 'Tier 4 — Order Orchestrator (Node.js microservice)',
+      subtitle: 'Running on EKS Kubernetes HPA with 16 pods (64 GB RAM total cluster compute capacity).',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'db_aurora_orders',
+      tier: '7. OPERATIONAL DATABASE',
+      title: 'Tier 5 — Amazon Aurora PostgreSQL Multi-AZ',
+      subtitle: 'ACID transactional database processing 15M orders/day with full column contract and typing displayed.',
+      duration: 4200,
+      hasScroll: true
+    },
+    {
+      nodeId: 'bus_order_events',
+      tier: '8. MESSAGING & PUB/SUB',
+      title: 'Tier 6 — Amazon SNS Topic (order-events-stream)',
+      subtitle: 'Pub/sub broadcast fan-out delivering 25,000 msg/sec with sub-20ms delivery SLA to consumers.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'queue_lake_buffer',
+      tier: '9. QUEUING & BUFFER',
+      title: 'Tier 7 — Amazon SQS FIFO Queue (lakehouse-ingestion.fifo)',
+      subtitle: 'Throttles traffic spikes, deduplicates orders, and guarantees exactly-once delivery to storage.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'lake_s3_bronze',
+      tier: '10. BRONZE DATA LAKE',
+      title: 'Tier 8 — Amazon S3 Bronze (Raw Immutable Lake)',
+      subtitle: 'Ingests 1.5 TB/day raw append-only Parquet logs with infinite Glacier 90d lifecycle policy.',
+      duration: 4200,
+      hasScroll: true
+    },
+    {
+      nodeId: 'job_glue_silver_etl',
+      tier: '11. SILVER PROCESSING',
+      title: 'Tier 9 — AWS Glue 4.0 (Spark 3.3 Serverless)',
+      subtitle: 'Provisioned with 16 DPUs (G.2X workers, 128 GB RAM distributed) for automated file compaction.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'table_iceberg_silver',
+      tier: '12. APACHE ICEBERG',
+      title: 'Tier 10 — Apache Iceberg Silver Table',
+      subtitle: 'ACID transaction layer partitioned by order_date with 900 GB/day compressed and column-level lineage.',
+      duration: 4500,
+      hasScroll: true
+    },
+    {
+      nodeId: 'proc_emr_features',
+      tier: '13. EMR HEAVY PROCESSING',
+      title: 'Tier 11 — Amazon EMR 7.1 Distributed Spark Cluster',
+      subtitle: 'Heavy compute cluster: 16x r5.4xlarge instances, 2,048 GB RAM for cross-table graph feature store.',
+      duration: 3800,
+      hasScroll: false
+    },
+    {
+      nodeId: 'proc_databricks_marts',
+      tier: '14. DATABRICKS PHOTON',
+      title: 'Tier 12 — Databricks Photon Delta Live Tables',
+      subtitle: 'Vectorized query engine producing Gold KPI models daily by 05:00 UTC with automated file skipping.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'table_delta_gold_kpis',
+      tier: '15. DELTA LAKE GOLD',
+      title: 'Tier 13 — Delta Lake Gold Business KPIs',
+      subtitle: 'Executive metrics: GMV, Churn, Active Buyers with upstream lineage pointing back to Iceberg Silver.',
+      duration: 4500,
+      hasScroll: true
+    },
+    {
+      nodeId: 'orch_airflow_master',
+      tier: '16. ORCHESTRATION',
+      title: 'Tier 14 — Apache Airflow 2.9 (Amazon MWAA)',
+      subtitle: 'Master DAG coordinating triggers, task sensors, SLA compliance, and cross-cloud synchronization.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'wh_snowflake_analytics',
+      tier: '17. ANALYTICS WAREHOUSE',
+      title: 'Tier 15 — Snowflake Data Cloud Hub',
+      subtitle: 'Central analytical warehouse serving executive Tableau/PowerBI semantic models 24/7.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'dash_grafana_telemetry',
+      tier: '18. OBSERVABILITY',
+      title: 'Tier 16 — Grafana Platform Observability',
+      subtitle: 'Real-time telemetry, service latency percentiles, error budgets, and queue lag monitoring.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'notif_ses_service',
+      tier: '19. NOTIFICATIONS',
+      title: 'Tier 17 — Amazon SES Notification Hub',
+      subtitle: 'Customer transactional email service dispatching receipts and notifications (12M emails/day).',
+      duration: 3500,
+      hasScroll: false
+    }
+  ];
 
+  let stepIdx = 0;
+  for (const step of journeySteps) {
+    stepIdx++;
+    console.log(`  [${stepIdx}/17] Visiting ${step.title.split('—')[0]}...`);
+
+    // Set HUD and focus node in Archify
+    await send('Runtime.evaluate', {
+      expression: `
+        window.__VIDEO_RECORDER__.setHud(${JSON.stringify(step.tier)}, ${JSON.stringify(step.title)}, ${JSON.stringify(step.subtitle)});
         if (window.Archify && Archify.focus) {
-          Archify.focus.set(step.nodeId, { toggle: false });
+          Archify.focus.set('${step.nodeId}', { toggle: false });
         }
         if (window.Archify && Archify.view) {
-          Archify.view.reveal([step.nodeId], { includeNeighbors: true });
+          Archify.view.reveal(['${step.nodeId}'], { includeNeighbors: true });
         }
-        await sleep(step.duration);
-      }
+      `
+    });
 
-      // ─── SCENE 4: Finale Return to Big Picture ───
-      activeSection = '20. COMPLETE PLATFORM';
-      overlayTitle = 'Architecture Synthesized & Published Successfully';
-      overlaySubtitle = 'Seamless pairing of Data Contracts, Compute Sizing, Volumetry, and Multi-Cloud Lineage with data-archify.';
+    await sleep(400);
 
+    if (step.hasScroll) {
+      // First hold to read top details (location, criticality, SLAs)
+      await holdScene(1800, true, 120);
+
+      // Scroll column table down to reveal source lineage
+      await send('Runtime.evaluate', {
+        expression: `
+          const wrap = document.querySelector('.da-table-wrap');
+          if (wrap) wrap.scrollTop = 70;
+        `
+      });
+      await sleep(200);
+      await holdScene(step.duration - 1800, true, 120);
+    } else {
+      await holdScene(step.duration, true, 120);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════
+  // SCENE 4: Finale Return to Big Picture
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 4: Finale Return to Big Picture...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('20. COMPLETE PLATFORM', 'Architecture Synthesized & Published Successfully', 'Seamless pairing of Data Contracts, Compute Sizing, Volumetry, and Multi-Cloud Lineage with data-archify.');
       if (window.Archify && Archify.focus) Archify.focus.clear();
       if (window.Archify && Archify.view) Archify.view.reset();
-      await sleep(3500);
+    `
+  });
+  await sleep(600);
+  await holdScene(4500, true, 120);
 
-      // Stop recorder
-      isRecording = false;
-      recorder.stop();
-    });
-  `;
-
-  console.log('Starting full journey recording (estimated ~45 seconds)...');
-  const result = await send('Runtime.evaluate', {
-    expression: recordingScript,
+  // Stop recording and retrieve video
+  console.log('Finalizing video encoding...');
+  const finishRes = await send('Runtime.evaluate', {
+    expression: 'window.__VIDEO_RECORDER__.finish()',
     awaitPromise: true,
     returnByValue: true
   });
 
-  const base64Data = result?.result?.value;
-  if (!base64Data) {
+  const base64Video = finishRes?.result?.value;
+  if (!base64Video) {
     chrome.kill();
-    throw new Error('Recording failed or returned empty video stream');
+    throw new Error('Failed to retrieve video stream from browser');
   }
 
   const outputVideoPath = path.resolve(__dirname, '../video/data-archify-complete-journey.webm');
-  const videoBuffer = Buffer.from(base64Data, 'base64');
+  const videoBuffer = Buffer.from(base64Video, 'base64');
   fs.writeFileSync(outputVideoPath, videoBuffer);
 
   console.log('═══════════════════════════════════════════════════════');
-  console.log(`  🎉 Video generated successfully!`);
+  console.log(`  🎉 Cadenced Full Journey Video generated successfully!`);
   console.log(`  📁 Path: ${outputVideoPath}`);
   console.log(`  📊 Size: ${(videoBuffer.length / (1024 * 1024)).toFixed(2)} MB`);
   console.log('═══════════════════════════════════════════════════════');
