@@ -11,13 +11,7 @@ dist/
 .env
 .env.*
 
-# Temporary test / render outputs in root
+# Temporary test / render outputs
 *.html
 *.png
 *_contracts.md
-!docs/01-event-driven.html
-!docs/02-heavy-processing.html
-!docs/03-medallion.html
-!docs/01-event-driven_contracts.md
-!docs/02-heavy-processing_contracts.md
-!docs/03-medallion_contracts.md
