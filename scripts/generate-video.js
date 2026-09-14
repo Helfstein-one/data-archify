@@ -5,12 +5,13 @@ const path = require('path');
 async function main() {
   console.log('═══════════════════════════════════════════════════════');
   console.log('  🎥  Data-Archify — Generating Full Journey Video');
+  console.log('      (Including Native Features: PATH, MAP, LENS, Finder)');
   console.log('═══════════════════════════════════════════════════════');
 
   const width = 1280;
   const height = 720;
   const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  const port = 9660;
+  const port = 9750;
   const userDataDir = `/tmp/chrome-video-${Date.now()}`;
 
   // Step 1: Ensure demo HTML exists
@@ -126,9 +127,9 @@ async function main() {
 
         return {
           setHud: (tier, title, subtitle) => {
-            activeHud.tier = tier;
-            activeHud.title = title;
-            activeHud.subtitle = subtitle;
+            activeHud.tier = tier || '';
+            activeHud.title = title || '';
+            activeHud.subtitle = subtitle || '';
           },
           setMode: (mode) => {
             activeHud.mode = mode;
@@ -209,52 +210,48 @@ async function main() {
         };
 
         function drawOverlays() {
-          // Top branding watermark
-          ctx.fillStyle = 'rgba(13, 17, 23, 0.90)';
-          ctx.fillRect(0, 0, ${width}, 44);
-          ctx.strokeStyle = '#30363d';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(0, 44);
-          ctx.lineTo(${width}, 44);
-          ctx.stroke();
-
-          ctx.fillStyle = '#58a6ff';
-          ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
-          ctx.fillText('🏗️ data-archify', 24, 28);
-
-          ctx.fillStyle = '#8b949e';
-          ctx.font = '14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-          ctx.fillText('— Universal Data Architecture, Lineage & Contracts Engine', 160, 28);
-
-          // Tier badge
-          if (activeHud.tier) {
-            ctx.fillStyle = '#238636';
-            ctx.beginPath();
-            ctx.roundRect(${width} - 280, 10, 256, 26, 6);
-            ctx.fill();
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
-            ctx.fillText(activeHud.tier, ${width} - 268, 27);
-          }
-
-          // Bottom HUD banner
+          // Bottom-left sleek floating HUD card (NEVER overlaps top toolbar or bottom-right dock!)
           if (activeHud.title) {
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+            const cardX = 24;
+            const cardY = ${height} - 94;
+            const cardW = 560;
+            const cardH = 70;
+            const radius = 10;
+
+            // Glassmorphism background
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
             ctx.beginPath();
-            ctx.roundRect(24, ${height} - 82, ${width} - 48, 64, 10);
+            ctx.roundRect(cardX, cardY, cardW, cardH, radius);
             ctx.fill();
+
+            // Accent border
             ctx.strokeStyle = '#38bdf8';
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            ctx.fillStyle = '#38bdf8';
-            ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(activeHud.title, 44, ${height} - 54);
+            // Tag badge inside HUD
+            let titleOffset = 20;
+            if (activeHud.tier) {
+              ctx.fillStyle = '#238636';
+              ctx.beginPath();
+              ctx.roundRect(cardX + 16, cardY + 12, 130, 20, 4);
+              ctx.fill();
 
+              ctx.fillStyle = '#ffffff';
+              ctx.font = 'bold 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace';
+              ctx.fillText(activeHud.tier, cardX + 24, cardY + 26);
+              titleOffset = 158;
+            }
+
+            // Title
+            ctx.fillStyle = '#38bdf8';
+            ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(activeHud.title, cardX + titleOffset, cardY + 27);
+
+            // Subtitle
             ctx.fillStyle = '#cbd5e1';
-            ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-            ctx.fillText(activeHud.subtitle, 44, ${height} - 32);
+            ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            ctx.fillText(activeHud.subtitle, cardX + 20, cardY + 52);
           }
         }
       })();
@@ -313,13 +310,14 @@ async function main() {
   await holdScene(1500, false, 80);
 
   // ═══════════════════════════════════════════════════════
-  // SCENE 2: Big Picture Architecture Overview
+  // SCENE 2: Landing on Diagram & Entering Presentation Mode
   // ═══════════════════════════════════════════════════════
-  console.log('▶ Recording Scene 2: Big Picture Overview...');
+  console.log('▶ Recording Scene 2: Standard Viewer & Entering Presentation Mode...');
   await send('Runtime.evaluate', {
     expression: `
       window.__VIDEO_RECORDER__.setMode('diagram');
-      window.__VIDEO_RECORDER__.setHud('2. FULL PLATFORM VIEW', 'Step 2: Big Picture Architecture (All 9 Tiers)', 'Macro architectural view with 17 components spanning Frontend, API, Storage, Lakehouse, Analytics & Reporting.');
+      window.__VIDEO_RECORDER__.setHud('2. FULL PLATFORM VIEW', 'Step 2: Entering Presentation Mode (Fullscreen Stage)', 'Activating presentation stage mode: diagram fits viewport with active top toolbar and dock.');
+      if (window.Archify && Archify.presentation) Archify.presentation.enter();
       if (window.Archify && Archify.focus) Archify.focus.clear();
       if (window.Archify && Archify.view) Archify.view.reset();
     `
@@ -328,9 +326,119 @@ async function main() {
   await holdScene(3500, true, 120);
 
   // ═══════════════════════════════════════════════════════
-  // SCENE 3: Cadenced Step-by-Step Drill-down Through All 17 Components
+  // SCENE 3: Native Controls Showcase (MAP, LENS, Finder 🔍, Zoom)
   // ═══════════════════════════════════════════════════════
-  console.log('▶ Recording Scene 3: Cadenced Step-by-Step Drill-down...');
+  console.log('▶ Recording Scene 3: Native Interactive Features (MAP, LENS, Finder, Zoom)...');
+
+  // 3A: Spatial Radar / Overview Map
+  console.log('  -> Showcasing Spatial Radar (MAP)...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('FEATURE: MAP', 'Spatial Radar (MAP) — Interactive Mini-Map', 'Clicking MAP opens radar mini-map in bottom-right for global orientation across all 17 nodes.');
+      if (window.Archify && Archify.radar) Archify.radar.open();
+    `
+  });
+  await sleep(400);
+  await holdScene(2800, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: 'if (window.Archify && Archify.radar) Archify.radar.close();'
+  });
+  await sleep(400);
+
+  // 3B: Semantic Lens (Filtering by category)
+  console.log('  -> Showcasing Semantic Lens (LENS)...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('FEATURE: LENS', 'Semantic Lens (LENS) — Category Highlighting', 'Clicking LENS filters components by role: highlighting database & storage tier components.');
+      if (window.Archify && Archify.semanticLens) {
+        Archify.semanticLens.open();
+        Archify.semanticLens.select('database');
+      }
+    `
+  });
+  await sleep(400);
+  await holdScene(2800, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: `
+      if (window.Archify && Archify.semanticLens) {
+        Archify.semanticLens.clear();
+        Archify.semanticLens.close();
+      }
+    `
+  });
+  await sleep(400);
+
+  // 3C: Node Finder Search (🔍)
+  console.log('  -> Showcasing Node Finder (🔍)...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('FEATURE: FINDER', 'Node Finder (🔍) — Fast Component Search', 'Searching \"Aurora\" quickly identifies, navigates, and isolates target database in diagram.');
+      if (window.Archify && Archify.finder) {
+        Archify.finder.open();
+        const input = document.getElementById('node-finder-input');
+        if (input) {
+          input.value = 'aurora';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    `
+  });
+  await sleep(400);
+  await holdScene(2600, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: 'if (window.Archify && Archify.finder) Archify.finder.close();'
+  });
+  await sleep(400);
+
+  // 3D: Viewport Zoom Controls (- / 100% / +)
+  console.log('  -> Showcasing Viewport Zoom & Scaling...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('FEATURE: ZOOM', 'Viewport Zoom & Canvas Controls', 'Fluid scaling controls (+ / - / 100%) for zooming into dense architectural clusters.');
+      if (window.Archify && Archify.view) Archify.view.zoomIn();
+    `
+  });
+  await holdScene(1400, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: 'if (window.Archify && Archify.view) Archify.view.zoomOut();'
+  });
+  await holdScene(1200, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: 'if (window.Archify && Archify.view) Archify.view.reset();'
+  });
+  await holdScene(1600, true, 120);
+
+  // ═══════════════════════════════════════════════════════
+  // SCENE 4: End-to-End Route Tracing (PATH)
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 4: End-to-End Route Tracing (PATH)...');
+  await send('Runtime.evaluate', {
+    expression: `
+      window.__VIDEO_RECORDER__.setHud('FEATURE: PATH', 'Route Probe (PATH) — End-to-End Path Tracing', 'Clicking PATH connects Storefront Web App to Delta Lake Gold, illuminating entire traversed pipeline.');
+      if (window.Archify && Archify.routeProbe) {
+        Archify.routeProbe.begin();
+        Archify.routeProbe.choose('fe_ecommerce_web');
+        Archify.routeProbe.choose('table_delta_gold_kpis');
+      }
+    `
+  });
+  await sleep(600);
+  await holdScene(4500, true, 120);
+
+  await send('Runtime.evaluate', {
+    expression: 'if (window.Archify && Archify.routeProbe) Archify.routeProbe.clear();'
+  });
+  await sleep(500);
+
+  // ═══════════════════════════════════════════════════════
+  // SCENE 5: Cadenced Step-by-Step Drill-down Through Nodes & Contracts
+  // ═══════════════════════════════════════════════════════
+  console.log('▶ Recording Scene 5: Cadenced Step-by-Step Drill-down with Data Contracts...');
 
   const journeySteps = [
     {
@@ -510,9 +618,9 @@ async function main() {
   }
 
   // ═══════════════════════════════════════════════════════
-  // SCENE 4: Finale Return to Big Picture
+  // SCENE 6: Finale Return to Big Picture
   // ═══════════════════════════════════════════════════════
-  console.log('▶ Recording Scene 4: Finale Return to Big Picture...');
+  console.log('▶ Recording Scene 6: Finale Return to Big Picture...');
   await send('Runtime.evaluate', {
     expression: `
       window.__VIDEO_RECORDER__.setHud('20. COMPLETE PLATFORM', 'Architecture Synthesized & Published Successfully', 'Seamless pairing of Data Contracts, Compute Sizing, Volumetry, and Multi-Cloud Lineage with data-archify.');
