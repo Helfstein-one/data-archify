@@ -2,6 +2,10 @@
 
 > **Universal Data Architecture, Lineage & Data Contracts Engine powered by Archify.**
 
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
+[![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange.svg)](CHANGELOG.md)
+[![License: ISC](https://img.shields.io/badge/License-ISC-green.svg)](package.json)
+
 Transform your **dbt models**, **Airflow DAGs**, **Terraform data infrastructure**, and custom cloud blueprints into interactive, publication-ready data architecture diagrams with embedded **Data Contracts**, **Column-level Lineage**, and **Compute Sizing**.
 
 ---
@@ -53,7 +57,7 @@ Complete enterprise multi-tier data platform covering **Storefront Web (Next.js 
 ### 7. 🎥 Complete Journey Video (`/video`)
 A full high-definition video walkthrough capturing the entire workflow: terminal CLI execution, platform build, topological synthesis, and step-by-step interactive navigation across all 17 components:
 
-- 🎬 **Video File**: [`video/data-archify-complete-journey.webm`](video/data-archify-complete-journey.webm) *(1.2 MB, 1280x720 30fps VP9 with live HUD overlays)*
+- 🎬 **Video File**: [`video/data-archify-complete-journey.webm`](video/data-archify-complete-journey.webm) *(5.2 MB, 1280x720 30fps VP9 with live HUD overlays)*
 
 ---
 
@@ -171,9 +175,17 @@ data-archify/
 ├── templates/                     # Pre-built reference data architecture templates
 ├── tests/                         # Unit tests and mock manifests
 ├── vendor/archify/                # Local vendored Archify drawing engine
+├── CHANGELOG.md                   # Release notes & version progression
 ├── package.json
 └── tsconfig.json
 ```
+
+---
+
+## 📄 Documentation & Releases
+- 📋 [Changelog (v1.0.0)](CHANGELOG.md)
+- 🎬 [Complete Video Walkthrough](video/data-archify-complete-journey.webm)
+- 📑 [Reference Templates](templates/)
 
 ---
 
