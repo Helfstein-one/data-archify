@@ -4,7 +4,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](package.json)
 [![Changelog](https://img.shields.io/badge/changelog-Keep%20a%20Changelog-orange.svg)](CHANGELOG.md)
-[![License: ISC](https://img.shields.io/badge/License-ISC-green.svg)](package.json)
+[![License: ISC](https://img.shields.io/badge/License-ISC-green.svg)](LICENSE)
 
 Transform your **dbt models**, **Airflow DAGs**, **Terraform data infrastructure**, and custom cloud blueprints into interactive, publication-ready data architecture diagrams with embedded **Data Contracts**, **Column-level Lineage**, and **Compute Sizing**.
 

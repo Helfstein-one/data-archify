@@ -1,16 +1,35 @@
 {
   "name": "data-archify",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Universal Data Architecture, Lineage & Data Contracts Engine powered by Archify.",
+  "main": "dist/index.js",
+  "bin": {
+    "data-archify": "dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Helfstein-one/data-archify.git"
+  },
+  "author": "Mauricio Helfstein",
+  "license": "ISC",
+  "homepage": "https://github.com/Helfstein-one/data-archify#readme",
+  "bugs": {
+    "url": "https://github.com/Helfstein-one/data-archify/issues"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
     "setup-vendor": "node scripts/setup-vendor.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "data-architecture",
+    "data-contracts",
+    "lineage",
+    "dbt",
+    "airflow",
+    "terraform",
+    "archify"
+  ],
   "type": "commonjs",
   "dependencies": {
     "adm-zip": "^0.6.1",
