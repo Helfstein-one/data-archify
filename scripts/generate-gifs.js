@@ -421,6 +421,49 @@ async function generateEnterpriseFullPlatformGif() {
   });
 }
 
+async function generateEnterpriseTreePlatformGif() {
+  const demoHtmlPath = path.resolve(__dirname, '../docs/05-enterprise-tree.html');
+
+  const actions = [
+    // Frame 1: Big Picture overview of the 25-node Tree Architecture
+    resetView(),
+    { eval: '', wait: 700 },
+    // Frame 2: Branch A — OLTP Database
+    focusNode('db_aurora_oltp', 1300),
+    // Frame 3: Branch B — Storefront Web App (Next.js 15)
+    focusNode('fe_storefront_app', 1200),
+    // Frame 4: Central API Gateway
+    focusNode('api_gateway_core', 1200),
+    // Frame 5: SQS FIFO Buffer
+    focusNode('queue_sqs_events', 1200),
+    // Frame 6: Convergence — S3 Raw/Bronze Lakehouse
+    focusNode('lake_s3_bronze', 1300),
+    // Frame 7: Cleansed Iceberg Silver Table & Data Contract
+    focusNode('table_iceberg_silver', 1400),
+    // Frame 8: Branch 1 — Amazon EMR Heavy Spark Processing
+    focusNode('proc_emr_spark', 1300),
+    // Frame 9: Branch 1 — Databricks Delta Lake Gold Marts
+    focusNode('table_delta_gold_marts', 1400),
+    // Frame 10: Branch 2 — Apache Flink Real-time Engine
+    focusNode('proc_flink_streaming', 1300),
+    // Frame 11: Branch 2 — DynamoDB Real-time Feature Store
+    focusNode('store_dynamodb_features', 1300),
+    // Frame 12: Branch 3 — Airflow Master MWAA Orchestrator
+    focusNode('orch_airflow_master', 1300),
+    // Frame 13: Branch 3 — Reverse ETL Sync Engine
+    focusNode('svc_reverse_etl', 1200),
+    // Frame 14: Return to Big Picture Tree Overview
+    resetView()
+  ];
+
+  await recordChromeInteraction({
+    url: `file://${demoHtmlPath}`,
+    actions,
+    outputPath: path.resolve(__dirname, '../docs/assets/portal-enterprise-tree.gif'),
+    width: 1100, height: 680, delay: 1350
+  });
+}
+
 /* ================================================================
    MAIN — Run all GIF generators sequentially
    ================================================================ */
@@ -431,12 +474,13 @@ async function main() {
   console.log('═══════════════════════════════════════════════════════');
 
   const generators = [
-    { name: '1/6  CLI Demo', fn: generateTerminalGif },
-    { name: '2/6  Medallion Lakehouse', fn: generateMedallionGif },
-    { name: '3/6  Event-Driven Ingestion', fn: generateEventDrivenGif },
-    { name: '4/6  Heavy Processing Lakehouse', fn: generateHeavyProcessingGif },
-    { name: '5/6  dbt Column Lineage', fn: generateDbtLineageGif },
-    { name: '6/6  Enterprise Full Platform', fn: generateEnterpriseFullPlatformGif },
+    { name: '1/7  CLI Demo', fn: generateTerminalGif },
+    { name: '2/7  Medallion Lakehouse', fn: generateMedallionGif },
+    { name: '3/7  Event-Driven Ingestion', fn: generateEventDrivenGif },
+    { name: '4/7  Heavy Processing Lakehouse', fn: generateHeavyProcessingGif },
+    { name: '5/7  dbt Column Lineage', fn: generateDbtLineageGif },
+    { name: '6/7  Enterprise Full Platform', fn: generateEnterpriseFullPlatformGif },
+    { name: '7/7  Enterprise Tree Architecture', fn: generateEnterpriseTreePlatformGif },
   ];
 
   for (const gen of generators) {

@@ -54,15 +54,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`02-heavy-processing-lakehouse.json`**: Big data batch processing pipeline (S3 Bronze ➔ Glue Compactor ➔ Apache Iceberg ➔ EMR Spark 2TB RAM ➔ Databricks Photon ➔ Gold Marts).
 - **`03-medallion-lakehouse-orchestrated.json`**: Governed Medallion architecture (Airflow MWAA ➔ Bronze Iceberg ➔ dbt Silver Cleansing ➔ dbt Gold Marts with column lineage).
 - **`04-enterprise-full-platform.json`**: Complete 17-node, 9-tier enterprise stack covering Front-end, API, Backend Services, Relational DB, Messaging, Storage Lakehouse, Batch Compute, Query Engine, Orchestration, Cloud DW, Observability, and Notifications.
+- **`05-enterprise-tree-platform.json`**: Multi-layer, non-linear Tree Architecture (25 nodes & 24 directed edges across 9 tiers) featuring 3 parallel ingestion trunks (CDC, Clickstream, SaaS), S3 Bronze / Iceberg Silver storage hub, and 3 parallel consumption branches (Analytics DW, ML Feature Store, Reverse ETL).
 
 #### 🎬 Documentation & Media Assets
-- **6 Animated High-Fidelity GIFs (`docs/assets/`)**:
+- **7 Animated High-Fidelity GIFs (`docs/assets/`)**:
   - `cli-demo.gif`: CLI compilation and artifact bundling.
   - `portal-medallion.gif`: Medallion Lakehouse with column lineage drill-down.
   - `portal-event-driven.gif`: Real-time streaming with volumetry and DLQ inspection.
   - `portal-heavy-processing.gif`: Heavy batch processing with EMR/Glue compute sizing.
   - `portal-dbt-lineage.gif`: dbt bipartite graph transformation walkthrough.
   - `portal-enterprise-platform.gif`: Multi-tier enterprise platform overview.
+  - `portal-enterprise-tree.gif`: Non-linear Enterprise Tree Architecture walkthrough across all 25 nodes and 3 fan-in / fan-out branches.
 - **Complete Journey Walkthrough Video (`video/data-archify-complete-journey.webm`)**:
   - 1280x720 30fps VP9 recording capturing the complete user journey:
     - CLI execution and blueprint compilation.

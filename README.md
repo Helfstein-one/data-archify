@@ -54,10 +54,17 @@ Complete enterprise multi-tier data platform covering **Storefront Web (Next.js 
 
 ---
 
-### 7. 🎥 Complete Journey Video (`/video`)
-A full high-definition video walkthrough capturing the entire workflow: terminal CLI execution, platform build, topological synthesis, and step-by-step interactive navigation across all 17 components:
+### 7. Enterprise Tree Architecture — Multi-Trunk Ingestion & Fan-Out Branches
+Complex 25-node non-linear tree architecture demonstrating multi-source fan-in (**OLTP CDC + Streaming Clickstream + SaaS Batch APIs**) converging into **S3 Bronze Lakehouse / Iceberg Silver**, and fanning out into 3 parallel consumption trees (**Analytics & BI, Real-time ML & Feature Store, and Operational Reverse ETL & Notifications**):
 
-- 🎬 **Video File**: [`video/data-archify-complete-journey.webm`](video/data-archify-complete-journey.webm) *(5.2 MB, 1280x720 30fps VP9 with live HUD overlays)*
+![Enterprise Tree Architecture Portal Demo](docs/assets/portal-enterprise-tree.gif)
+
+---
+
+### 8. 🎥 Complete Journey Video (`/video`)
+A full high-definition video walkthrough capturing the entire workflow: terminal CLI execution, platform build, topological synthesis, and step-by-step interactive navigation across all 25 components:
+
+- 🎬 **Video File**: [`video/data-archify-complete-journey.webm`](video/data-archify-complete-journey.webm) *(6.2 MB, 1280x720 30fps VP9 with live HUD overlays)*
 
 ---
 
@@ -146,6 +153,7 @@ The `templates/` directory includes production-grade data architectures ready to
 | [`02-heavy-processing-lakehouse.json`](templates/02-heavy-processing-lakehouse.json) | **Big Data Batch Processing** | S3 Bronze ➔ AWS Glue Compactor ➔ Apache Iceberg ➔ Amazon EMR Spark ➔ Databricks Gold | `12 TB/day`, Glue 12 DPUs, EMR 16x r5.4xlarge (2TB RAM), Databricks Photon |
 | [`03-medallion-lakehouse-orchestrated.json`](templates/03-medallion-lakehouse-orchestrated.json) | **Medallion Lakehouse & Governance** | Airflow Master DAG ➔ Bronze Iceberg ➔ dbt Silver Cleansing ➔ dbt Gold Marts | Full Data Contracts, column-level lineage, strict SLAs & SLOs |
 | [`04-enterprise-full-platform.json`](templates/04-enterprise-full-platform.json) | **Enterprise Full Platform** | Next.js ➔ API Gateway ➔ Secrets Manager ➔ Node.js ➔ Aurora PG ➔ SNS ➔ SQS ➔ S3 ➔ Glue ➔ Iceberg ➔ EMR ➔ Databricks ➔ Airflow ➔ Snowflake ➔ Grafana ➔ SES | Full-Stack: 17 nodes across all 9 technical tiers, official 2026 AWS & Databricks brand marks |
+| [`05-enterprise-tree-platform.json`](templates/05-enterprise-tree-platform.json) | **Enterprise Tree Architecture** | 3 Ingestion Trunks (CDC, Clickstream, SaaS) ➔ S3 Bronze Hub ➔ Iceberg Silver ➔ 3 Consumption Branches (Analytics, ML, Reverse ETL) | Multi-Layer Tree: 25 nodes & 24 directed edges across 9 operational tiers |
 
 To render all templates at once:
 ```bash

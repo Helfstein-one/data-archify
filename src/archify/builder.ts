@@ -56,16 +56,27 @@ export function buildArchifyIr(graph: DataGraph): any {
   const nodePositions = new Map<string, { row: number; col: number }>();
 
   const components = graph.nodes.map(node => {
-    const r = nodeDepths.get(node.id) || 0;
-    const c = depthCounts.get(r) || 0;
-    depthCounts.set(r, c + 1);
+    let r = nodeDepths.get(node.id) || 0;
+    let c = depthCounts.get(r) || 0;
+    if ((node as any).row !== undefined) {
+      r = (node as any).row;
+    }
+    if ((node as any).col !== undefined) {
+      c = (node as any).col;
+    } else {
+      c = depthCounts.get(r) || 0;
+      depthCounts.set(r, c + 1);
+    }
     nodePositions.set(node.id, { row: r, col: c });
 
     let sublabel = node.sublabel || '';
 
+    const validTypes = new Set(['frontend', 'backend', 'database', 'cloud', 'security', 'messagebus', 'external']);
+    const compType = validTypes.has(node.type) ? node.type : 'database';
+
     const comp: any = {
       id: node.id.replace(/[^a-zA-Z0-9_-]/g, '_'),
-      type: node.type,
+      type: compType,
       label: node.name,
       sublabel: sublabel,
       tag: node.group,
@@ -107,19 +118,27 @@ export function buildArchifyIr(graph: DataGraph): any {
         toSide = 'right';
       }
     } else if (targetPos.row > sourcePos.row) {
-      if (targetPos.col === sourcePos.col) {
-        fromSide = 'bottom';
+      if (targetPos.col > sourcePos.col) {
+        fromSide = 'right';
         toSide = 'top';
-      } else if (targetPos.col > sourcePos.col) {
-        fromSide = 'bottom';
+      } else if (targetPos.col < sourcePos.col) {
+        fromSide = 'left';
         toSide = 'top';
       } else {
         fromSide = 'bottom';
         toSide = 'top';
       }
     } else {
-      fromSide = 'top';
-      toSide = 'bottom';
+      if (targetPos.col > sourcePos.col) {
+        fromSide = 'right';
+        toSide = 'bottom';
+      } else if (targetPos.col < sourcePos.col) {
+        fromSide = 'left';
+        toSide = 'bottom';
+      } else {
+        fromSide = 'top';
+        toSide = 'bottom';
+      }
     }
 
     const conn: any = {
@@ -130,29 +149,21 @@ export function buildArchifyIr(graph: DataGraph): any {
       toSide: toSide
     };
 
-    // Only add SLA label if incoming degree is 1 and outgoing degree is 1 to completely avoid label overlap
-    const incomingCount = graph.edges.filter(e => e.target === edge.target).length;
-    const outgoingCount = graph.edges.filter(e => e.source === edge.source).length;
-    if (edgeLabel && incomingCount === 1 && outgoingCount === 1) {
-      conn.label = edgeLabel;
-      conn.labelDy = 24;
-    }
-
     return conn;
   });
 
-  const maxCols = Math.max(...Array.from(depthCounts.values()), 1);
+  const maxCol = Math.max(...components.map((c: any) => c.col), 0);
 
   return {
     schema_version: 1,
-    diagram_type: "architecture",
+    diagram_type: 'architecture',
     meta: {
-      title: "Data Architecture Lineage",
-      visual_preset: "classic"
+      title: 'Data Architecture Lineage',
+      visual_preset: 'classic'
     },
     layout: {
-      mode: "grid",
-      cols: maxCols,
+      mode: 'grid',
+      cols: maxCol + 1,
       gapX: 60,
       gapY: 70,
       cellW: 240,

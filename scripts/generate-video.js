@@ -15,11 +15,11 @@ async function main() {
   const userDataDir = `/tmp/chrome-video-${Date.now()}`;
 
   // Step 1: Ensure demo HTML exists
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-enterprise-full-platform.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/05-enterprise-tree.html');
   if (!fs.existsSync(demoHtmlPath)) {
-    console.log('Building enterprise full platform demo HTML...');
+    console.log('Building enterprise tree platform demo HTML...');
     const { execSync } = require('child_process');
-    execSync(`node dist/index.js render --input templates/04-enterprise-full-platform.json --out ${demoHtmlPath}`, { stdio: 'inherit' });
+    execSync(`node dist/index.js render --input templates/05-enterprise-tree-platform.json --out ${demoHtmlPath}`, { stdio: 'inherit' });
   }
 
   // Step 2: Spawn Chrome with target page
@@ -442,139 +442,139 @@ async function main() {
 
   const journeySteps = [
     {
-      nodeId: 'fe_ecommerce_web',
-      tier: '3. FRONTEND TIER',
-      title: 'Tier 1 — Storefront Web App (Next.js 15 / React 19)',
-      subtitle: 'High-traffic customer shopping portal with 45,000 req/sec throughput and sub-100ms TTFB SLA.',
-      duration: 3500,
+      nodeId: 'db_aurora_oltp',
+      tier: 'TRUNK A — OLTP SOURCE',
+      title: 'Branch A — Orders & Customers Aurora PG',
+      subtitle: 'Transactional PostgreSQL handling 25M orders/day with real-time WAL replication.',
+      duration: 3800,
+      hasScroll: true
+    },
+    {
+      nodeId: 'proc_debezium_cdc',
+      tier: 'TRUNK A — LOG CDC',
+      title: 'Branch A — Debezium CDC Engine',
+      subtitle: 'Log-based Change Data Capture engine with sub-200ms CDC streaming lag.',
+      duration: 3200,
+      hasScroll: false
+    },
+    {
+      nodeId: 'bus_kafka_msk',
+      tier: 'TRUNK A — EVENT BUS',
+      title: 'Branch A — Amazon MSK Kafka Cluster',
+      subtitle: 'Managed Apache Kafka streaming 35,000 events/sec across 3 availability zones.',
+      duration: 3200,
+      hasScroll: false
+    },
+    {
+      nodeId: 'fe_storefront_app',
+      tier: 'TRUNK B — CLICKSTREAM',
+      title: 'Branch B — Storefront Web & Mobile',
+      subtitle: 'Next.js 15 customer storefront producing clickstream payloads (50,000 req/sec).',
+      duration: 3200,
       hasScroll: false
     },
     {
       nodeId: 'api_gateway_core',
-      tier: '4. API GATEWAY',
-      title: 'Tier 2 — Amazon API Gateway (AWS 2026 Badge)',
-      subtitle: 'Edge routing with rate limiting, JWT validation and 4.3B daily requests with sub-15ms overhead.',
-      duration: 3500,
+      tier: 'TRUNK B — INGRESS GATEWAY',
+      title: 'Branch B — Central API Gateway',
+      subtitle: 'AWS API Gateway routing traffic with sub-15ms latency and rate limiting.',
+      duration: 3200,
       hasScroll: false
     },
     {
-      nodeId: 'sec_vault_secrets',
-      tier: '5. SECURITY & SECRETS',
-      title: 'Tier 3 — AWS Secrets Manager',
-      subtitle: 'Rotates database connection strings and payment API credentials every 30 days automatically.',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'svc_order_processor',
-      tier: '6. BACKEND SERVICES',
-      title: 'Tier 4 — Order Orchestrator (Node.js microservice)',
-      subtitle: 'Running on EKS Kubernetes HPA with 16 pods (64 GB RAM total cluster compute capacity).',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'db_aurora_orders',
-      tier: '7. OPERATIONAL DATABASE',
-      title: 'Tier 5 — Amazon Aurora PostgreSQL Multi-AZ',
-      subtitle: 'ACID transactional database processing 15M orders/day with full column contract and typing displayed.',
-      duration: 4200,
-      hasScroll: true
-    },
-    {
-      nodeId: 'bus_order_events',
-      tier: '8. MESSAGING & PUB/SUB',
-      title: 'Tier 6 — Amazon SNS Topic (order-events-stream)',
-      subtitle: 'Pub/sub broadcast fan-out delivering 25,000 msg/sec with sub-20ms delivery SLA to consumers.',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'queue_lake_buffer',
-      tier: '9. QUEUING & BUFFER',
-      title: 'Tier 7 — Amazon SQS FIFO Queue (lakehouse-ingestion.fifo)',
-      subtitle: 'Throttles traffic spikes, deduplicates orders, and guarantees exactly-once delivery to storage.',
-      duration: 3500,
+      nodeId: 'queue_sqs_events',
+      tier: 'TRUNK B — QUEUE BUFFER',
+      title: 'Branch B — Lake Buffer SQS FIFO Queue',
+      subtitle: 'Strictly-ordered SQS FIFO queue acting as a backpressure buffer.',
+      duration: 3200,
       hasScroll: false
     },
     {
       nodeId: 'lake_s3_bronze',
-      tier: '10. BRONZE DATA LAKE',
-      title: 'Tier 8 — Amazon S3 Bronze (Raw Immutable Lake)',
-      subtitle: 'Ingests 1.5 TB/day raw append-only Parquet logs with infinite Glacier 90d lifecycle policy.',
-      duration: 4200,
-      hasScroll: true
-    },
-    {
-      nodeId: 'job_glue_silver_etl',
-      tier: '11. SILVER PROCESSING',
-      title: 'Tier 9 — AWS Glue 4.0 (Spark 3.3 Serverless)',
-      subtitle: 'Provisioned with 16 DPUs (G.2X workers, 128 GB RAM distributed) for automated file compaction.',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'table_iceberg_silver',
-      tier: '12. APACHE ICEBERG',
-      title: 'Tier 10 — Apache Iceberg Silver Table',
-      subtitle: 'ACID transaction layer partitioned by order_date with 900 GB/day compressed and column-level lineage.',
-      duration: 4500,
-      hasScroll: true
-    },
-    {
-      nodeId: 'proc_emr_features',
-      tier: '13. EMR HEAVY PROCESSING',
-      title: 'Tier 11 — Amazon EMR 7.1 Distributed Spark Cluster',
-      subtitle: 'Heavy compute cluster: 16x r5.4xlarge instances, 2,048 GB RAM for cross-table graph feature store.',
+      tier: 'CORE HUB — BRONZE LAKE',
+      title: 'Storage Hub — S3 Raw/Bronze Lakehouse',
+      subtitle: 'Immutable multi-region S3 bucket receiving raw CDC streams (850 GB/day).',
       duration: 3800,
       hasScroll: false
     },
     {
-      nodeId: 'proc_databricks_marts',
-      tier: '14. DATABRICKS PHOTON',
-      title: 'Tier 12 — Databricks Photon Delta Live Tables',
-      subtitle: 'Vectorized query engine producing Gold KPI models daily by 05:00 UTC with automated file skipping.',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'table_delta_gold_kpis',
-      tier: '15. DELTA LAKE GOLD',
-      title: 'Tier 13 — Delta Lake Gold Business KPIs',
-      subtitle: 'Executive metrics: GMV, Churn, Active Buyers with upstream lineage pointing back to Iceberg Silver.',
+      nodeId: 'table_iceberg_silver',
+      tier: 'CORE HUB — SILVER LAKE',
+      title: 'Storage Hub — Cleansed Iceberg Silver Lake',
+      subtitle: 'ACID-compliant Apache Iceberg Silver table with column contracts and upstream lineage.',
       duration: 4500,
       hasScroll: true
     },
     {
+      nodeId: 'proc_emr_spark',
+      tier: 'FAN-OUT 1 — BATCH SPARK',
+      title: 'Branch 1 — Amazon EMR Feature Spark',
+      subtitle: 'Distributed Spark cluster: 16x r5.4xlarge nodes (2,176 GB RAM total capacity).',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'table_delta_gold_marts',
+      tier: 'FAN-OUT 1 — GOLD MARTS',
+      title: 'Branch 1 — Delta Lake Gold Business Marts',
+      subtitle: 'Vectorized Databricks Delta Lake tables powering corporate finance and analytics.',
+      duration: 4200,
+      hasScroll: true
+    },
+    {
+      nodeId: 'wh_snowflake_dw',
+      tier: 'FAN-OUT 1 — CLOUD DW',
+      title: 'Branch 1 — Snowflake Analytics DW',
+      subtitle: 'Enterprise data warehouse serving self-service ad-hoc SQL and BI dashboards.',
+      duration: 3200,
+      hasScroll: false
+    },
+    {
+      nodeId: 'proc_flink_streaming',
+      tier: 'FAN-OUT 2 — STREAM ENGINE',
+      title: 'Branch 2 — Apache Flink Stream Engine',
+      subtitle: 'Stateful stream processing engine computing rolling 5-min user behavior windows.',
+      duration: 3500,
+      hasScroll: false
+    },
+    {
+      nodeId: 'store_dynamodb_features',
+      tier: 'FAN-OUT 2 — FEATURE STORE',
+      title: 'Branch 2 — DynamoDB Real-time Feature Store',
+      subtitle: 'Low-latency NoSQL feature store serving real-time vectors to online ML models.',
+      duration: 3200,
+      hasScroll: false
+    },
+    {
+      nodeId: 'svc_ml_inference_api',
+      tier: 'FAN-OUT 2 — ML INFERENCE',
+      title: 'Branch 2 — Real-time ML Inference API',
+      subtitle: 'FastAPI microservice predicting personalized product recommendations (< 25ms).',
+      duration: 3200,
+      hasScroll: false
+    },
+    {
       nodeId: 'orch_airflow_master',
-      tier: '16. ORCHESTRATION',
-      title: 'Tier 14 — Apache Airflow 2.9 (Amazon MWAA)',
-      subtitle: 'Master DAG coordinating triggers, task sensors, SLA compliance, and cross-cloud synchronization.',
-      duration: 3500,
+      tier: 'FAN-OUT 3 — ORCHESTRATION',
+      title: 'Branch 3 — Master Lakehouse MWAA DAG',
+      subtitle: 'Managed Apache Airflow 2.9 DAG orchestrating cross-system SLA dependencies.',
+      duration: 3200,
       hasScroll: false
     },
     {
-      nodeId: 'wh_snowflake_analytics',
-      tier: '17. ANALYTICS WAREHOUSE',
-      title: 'Tier 15 — Snowflake Data Cloud Hub',
-      subtitle: 'Central analytical warehouse serving executive Tableau/PowerBI semantic models 24/7.',
-      duration: 3500,
+      nodeId: 'svc_reverse_etl',
+      tier: 'FAN-OUT 3 — REVERSE ETL',
+      title: 'Branch 3 — Reverse ETL Sync Engine',
+      subtitle: 'Sync engine exporting curated customer lifetime value into operational CRM tools.',
+      duration: 3200,
       hasScroll: false
     },
     {
-      nodeId: 'dash_grafana_telemetry',
-      tier: '18. OBSERVABILITY',
-      title: 'Tier 16 — Grafana Platform Observability',
-      subtitle: 'Real-time telemetry, service latency percentiles, error budgets, and queue lag monitoring.',
-      duration: 3500,
-      hasScroll: false
-    },
-    {
-      nodeId: 'notif_ses_service',
-      tier: '19. NOTIFICATIONS',
-      title: 'Tier 17 — Amazon SES Notification Hub',
-      subtitle: 'Customer transactional email service dispatching receipts and notifications (12M emails/day).',
-      duration: 3500,
+      nodeId: 'notif_ses_gateway',
+      tier: 'FAN-OUT 3 — NOTIFICATIONS',
+      title: 'Branch 3 — Customer Notification SES Hub',
+      subtitle: 'Automated transactional email gateway sending purchase receipts (12M emails/day).',
+      duration: 3200,
       hasScroll: false
     }
   ];
