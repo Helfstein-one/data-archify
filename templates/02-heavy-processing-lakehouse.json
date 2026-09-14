@@ -1,0 +1,193 @@
+{
+  "nodes": [
+    {
+      "id": "s3_bronze_store",
+      "name": "data-lakehouse-raw",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-lakehouse-bronze",
+      "location": "s3://corp-lakehouse-raw/transactions/",
+      "description": "Immutable Bronze raw storage ingesting append-only logs.",
+      "sublabel": "Amazon S3 (Bronze)",
+      "volumetry": {
+        "volume_per_day": "12 TB/day",
+        "records_per_day": "85M records/day",
+        "retention": "365 days"
+      },
+      "brand": "aws-s3"
+    },
+    {
+      "id": "glue_compaction_job",
+      "name": "glue-dedup-compactor",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-lakehouse-bronze",
+      "location": "arn:aws:glue:us-east-1:123456789012:job/dedup-compactor",
+      "description": "Serverless ETL job that deduplicates small files and merges them into Iceberg format.",
+      "sublabel": "AWS Glue 4.0 (Spark 3.3)",
+      "metadata": {
+        "sla": "25 minutes",
+        "criticality": "High",
+        "owner": "@data-ops"
+      },
+      "compute": {
+        "engine": "glue",
+        "sizing": "12 DPUs (Worker type: G.2X)",
+        "memory": "96 GB RAM distributed",
+        "rationale": "AWS Glue selected for automatic scaling and zero cluster management for scheduled hourly batch deduplication."
+      },
+      "brand": "aws-glue"
+    },
+    {
+      "id": "glue_iceberg_silver",
+      "name": "iceberg_silver_transactions",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-lakehouse-silver",
+      "location": "glue_catalog.lakehouse_silver.transactions",
+      "description": "ACID-compliant Apache Iceberg table partitioned by event_date.",
+      "sublabel": "Apache Iceberg Table",
+      "metadata": {
+        "sla": "1 hour SLA",
+        "slo": "99.9%",
+        "criticality": "Critical",
+        "owner": "@analytics-eng"
+      },
+      "volumetry": {
+        "volume_per_day": "8 TB/day compressed",
+        "records_per_day": "85M rows/day"
+      },
+      "columns": [
+        {
+          "name": "txn_id",
+          "type": "string",
+          "description": "Primary transaction key"
+        },
+        {
+          "name": "customer_id",
+          "type": "string",
+          "description": "Customer foreign key"
+        },
+        {
+          "name": "amount_cents",
+          "type": "bigint",
+          "description": "Transaction value in cents"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "description": "ISO-4217 Currency"
+        },
+        {
+          "name": "event_date",
+          "type": "date",
+          "description": "Partitioning key (YYYY-MM-DD)"
+        }
+      ]
+    },
+    {
+      "id": "emr_heavy_spark_cluster",
+      "name": "emr-spark-heavy-aggregator",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-lakehouse-silver",
+      "location": "j-3A982C10F93B (EMR 7.1.0)",
+      "description": "Large multi-node Spark cluster running full cross-partition joins and customer feature stores.",
+      "sublabel": "Amazon EMR Spark",
+      "metadata": {
+        "sla": "45 min execution",
+        "criticality": "Critical",
+        "owner": "@data-science"
+      },
+      "compute": {
+        "engine": "emr",
+        "sizing": "1x r5.2xlarge Primary + 16x r5.4xlarge Task Nodes",
+        "memory": "2,048 GB RAM total cluster memory",
+        "rationale": "EMR selected over serverless due to 4TB memory shuffle requirements and fine-grained Spot instance cost optimization."
+      },
+      "brand": "aws-emr"
+    },
+    {
+      "id": "databricks_gold_pipeline",
+      "name": "databricks-gold-analytics",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-lakehouse-gold",
+      "location": "job/databricks-gold-analytics-pipeline",
+      "description": "Databricks Delta Live Tables pipeline producing curated executive KPI tables.",
+      "sublabel": "Databricks Photon Engine",
+      "metadata": {
+        "sla": "2 hours",
+        "criticality": "High",
+        "owner": "@bi-team"
+      },
+      "compute": {
+        "engine": "databricks",
+        "sizing": "Databricks SQL Medium / Photon Acceleration",
+        "rationale": "Databricks Photon chosen for sub-second vectorized analytical querying and automated Delta Lake file skipping."
+      },
+      "brand": "databricks"
+    },
+    {
+      "id": "delta_gold_kpis",
+      "name": "gold_customer_ltv_daily",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-lakehouse-gold",
+      "location": "unity_catalog.gold.customer_ltv_daily",
+      "description": "Curated Gold feature and reporting table for BI dashboards and CRM automation.",
+      "sublabel": "Delta Lake Gold Table",
+      "metadata": {
+        "sla": "Available by 06:00 UTC",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@executive-analytics"
+      },
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "string",
+          "description": "Customer identifier"
+        },
+        {
+          "name": "lifetime_value",
+          "type": "decimal(18,2)",
+          "description": "Cumulative historical purchase value"
+        },
+        {
+          "name": "churn_risk_score",
+          "type": "float",
+          "description": "ML model churn probability (0.0 to 1.0)"
+        },
+        {
+          "name": "last_purchase_ts",
+          "type": "timestamp",
+          "description": "Most recent verified transaction timestamp"
+        }
+      ],
+      "brand": "databricks"
+    }
+  ],
+  "edges": [
+    {
+      "source": "s3_bronze_store",
+      "target": "glue_compaction_job"
+    },
+    {
+      "source": "glue_compaction_job",
+      "target": "glue_iceberg_silver"
+    },
+    {
+      "source": "glue_iceberg_silver",
+      "target": "emr_heavy_spark_cluster"
+    },
+    {
+      "source": "emr_heavy_spark_cluster",
+      "target": "databricks_gold_pipeline"
+    },
+    {
+      "source": "databricks_gold_pipeline",
+      "target": "delta_gold_kpis"
+    }
+  ]
+}

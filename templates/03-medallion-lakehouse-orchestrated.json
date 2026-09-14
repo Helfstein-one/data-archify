@@ -1,0 +1,231 @@
+{
+  "nodes": [
+    {
+      "id": "airflow_orchestrator",
+      "name": "dag_medallion_daily_flow",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-orchestration",
+      "location": "airflow.dags.dag_medallion_daily_flow",
+      "description": "Master Airflow DAG triggering dependent task groups and dbt pipeline executions.",
+      "sublabel": "Apache Airflow 2.9 (MWAA)",
+      "metadata": {
+        "sla": "Schedule: 02:00 UTC",
+        "criticality": "Critical",
+        "owner": "@data-platform"
+      },
+      "compute": {
+        "engine": "Airflow MWAA",
+        "sizing": "Environment class: mw1.medium (2-10 workers auto-scaling)",
+        "rationale": "Managed Airflow selected for strict cross-system dependency management and SLA tracking."
+      },
+      "brand": "apache-airflow"
+    },
+    {
+      "id": "bronze_crm_users",
+      "name": "bronze_crm_customers",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-bronze",
+      "location": "lakehouse_raw.bronze.crm_customers",
+      "description": "Raw ingested CRM users table directly from Salesforce REST replication.",
+      "sublabel": "Bronze Layer (Iceberg)",
+      "volumetry": {
+        "volume_per_day": "5 GB/day",
+        "records_per_day": "1.2M rows"
+      },
+      "metadata": {
+        "sla": "Available by 03:00 UTC",
+        "criticality": "Medium",
+        "owner": "@crm-eng"
+      },
+      "columns": [
+        {
+          "name": "id",
+          "type": "string",
+          "description": "Raw Salesforce contact ID"
+        },
+        {
+          "name": "full_name",
+          "type": "string",
+          "description": "Customer unparsed full name"
+        },
+        {
+          "name": "email_raw",
+          "type": "string",
+          "description": "Unvalidated contact email"
+        },
+        {
+          "name": "created_at",
+          "type": "string",
+          "description": "String formatted source timestamp"
+        }
+      ],
+      "brand": "aws-s3"
+    },
+    {
+      "id": "dbt_silver_cleansing",
+      "name": "dbt_run_stg_customers",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-silver",
+      "location": "dbt.models.staging.stg_customers",
+      "description": "dbt transformation applying schema validations, email sanitization, and typing.",
+      "sublabel": "dbt Core (SQL Transformation)",
+      "metadata": {
+        "sla": "15 min runtime",
+        "criticality": "High",
+        "owner": "@analytics-engineers"
+      },
+      "compute": {
+        "engine": "dbt Cloud / Warehouse Compute",
+        "sizing": "Warehouse Size: Large (16 vCPUs)",
+        "rationale": "dbt SQL pushdown executing directly on cloud data warehouse compute."
+      },
+      "brand": "dbt"
+    },
+    {
+      "id": "silver_customers_cleaned",
+      "name": "silver_customers",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-silver",
+      "location": "lakehouse_analytics.silver.customers",
+      "description": "Conformed, cleaned and deduplicated customer dimension table.",
+      "sublabel": "Silver Layer (Iceberg)",
+      "metadata": {
+        "sla": "04:00 UTC",
+        "slo": "99.95%",
+        "criticality": "Critical",
+        "owner": "@analytics-engineers"
+      },
+      "columns": [
+        {
+          "name": "customer_key",
+          "type": "integer",
+          "description": "Surrogate primary key",
+          "source_columns": [
+            "bronze_crm_users.id"
+          ]
+        },
+        {
+          "name": "first_name",
+          "type": "string",
+          "description": "Parsed first name",
+          "source_columns": [
+            "bronze_crm_users.full_name"
+          ]
+        },
+        {
+          "name": "last_name",
+          "type": "string",
+          "description": "Parsed surname",
+          "source_columns": [
+            "bronze_crm_users.full_name"
+          ]
+        },
+        {
+          "name": "valid_email",
+          "type": "string",
+          "description": "RFC-5322 sanitized email",
+          "source_columns": [
+            "bronze_crm_users.email_raw"
+          ]
+        },
+        {
+          "name": "registration_date",
+          "type": "date",
+          "description": "Parsed registration date",
+          "source_columns": [
+            "bronze_crm_users.created_at"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dbt_gold_aggregation",
+      "name": "dbt_run_fct_customer_retention",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-gold",
+      "location": "dbt.models.marts.fct_customer_retention",
+      "description": "dbt model computing cohort retention, churn thresholds, and rolling 30-day spend.",
+      "sublabel": "dbt Core (Marts Mart Model)",
+      "metadata": {
+        "sla": "30 min runtime",
+        "criticality": "Critical",
+        "owner": "@analytics-engineers"
+      },
+      "compute": {
+        "engine": "dbt / Snowflake / Databricks",
+        "sizing": "Warehouse Size: X-Large",
+        "rationale": "Optimized for heavy window functions and cross-year cohort aggregation."
+      },
+      "brand": "dbt"
+    },
+    {
+      "id": "gold_marts_kpis",
+      "name": "gold_fct_customer_retention",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-gold",
+      "location": "lakehouse_marts.gold.fct_customer_retention",
+      "description": "Star-schema fact table consumed directly by PowerBI, Tableau, and Customer Data Platform (CDP).",
+      "sublabel": "Gold Layer (Marts)",
+      "metadata": {
+        "sla": "Ready by 05:30 UTC",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@growth-analytics"
+      },
+      "columns": [
+        {
+          "name": "customer_key",
+          "type": "integer",
+          "description": "Foreign key to silver_customers",
+          "source_columns": [
+            "silver_customers_cleaned.customer_key"
+          ]
+        },
+        {
+          "name": "cohort_month",
+          "type": "string",
+          "description": "Year-Month signup cohort (e.g. 2026-03)"
+        },
+        {
+          "name": "is_active_current_period",
+          "type": "boolean",
+          "description": "Active in last 30 rolling days"
+        },
+        {
+          "name": "retention_rate_30d",
+          "type": "float",
+          "description": "30-day retention probability"
+        }
+      ],
+      "brand": "databricks"
+    }
+  ],
+  "edges": [
+    {
+      "source": "airflow_orchestrator",
+      "target": "bronze_crm_users"
+    },
+    {
+      "source": "bronze_crm_users",
+      "target": "dbt_silver_cleansing"
+    },
+    {
+      "source": "dbt_silver_cleansing",
+      "target": "silver_customers_cleaned"
+    },
+    {
+      "source": "silver_customers_cleaned",
+      "target": "dbt_gold_aggregation"
+    },
+    {
+      "source": "dbt_gold_aggregation",
+      "target": "gold_marts_kpis"
+    }
+  ]
+}

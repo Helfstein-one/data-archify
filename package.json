@@ -1,0 +1,27 @@
+{
+  "name": "data-archify",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "setup-vendor": "node scripts/setup-vendor.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "adm-zip": "^0.6.1",
+    "commander": "^15.0.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
+    "@types/node": "^26.5.1",
+    "gif-encoder-2": "^1.0.5",
+    "pngjs": "^7.0.0",
+    "typescript": "^7.0.2"
+  }
+}

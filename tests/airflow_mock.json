@@ -1,0 +1,39 @@
+{
+  "tasks": [
+    {
+      "task_id": "extract_group.extract_users",
+      "class_ref": {
+        "class_name": "PostgresOperator"
+      },
+      "downstream_task_ids": ["transform_group.transform_users"]
+    },
+    {
+      "task_id": "extract_group.extract_orders",
+      "class_ref": {
+        "class_name": "HttpSensor"
+      },
+      "downstream_task_ids": ["transform_group.transform_orders"]
+    },
+    {
+      "task_id": "transform_group.transform_users",
+      "class_ref": {
+        "class_name": "PythonOperator"
+      },
+      "downstream_task_ids": ["load_data"]
+    },
+    {
+      "task_id": "transform_group.transform_orders",
+      "class_ref": {
+        "class_name": "PythonOperator"
+      },
+      "downstream_task_ids": ["load_data"]
+    },
+    {
+      "task_id": "load_data",
+      "class_ref": {
+        "class_name": "SnowflakeOperator"
+      },
+      "downstream_task_ids": []
+    }
+  ]
+}

@@ -1,0 +1,523 @@
+{
+  "nodes": [
+    {
+      "id": "fe_ecommerce_web",
+      "name": "E-Commerce Storefront",
+      "type": "frontend",
+      "category": "PROCESS",
+      "group": "sys-frontend",
+      "location": "https://store.company.com",
+      "description": "Next.js 15 SSR customer portal for product catalog, checkout, and account management.",
+      "sublabel": "Next.js 15 / React 19",
+      "brand": "next-js",
+      "metadata": {
+        "sla": "< 100ms TTFB",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@frontend-team"
+      },
+      "volumetry": {
+        "throughput": "45,000 req/sec",
+        "volume_per_day": "180 GB/day"
+      }
+    },
+    {
+      "id": "api_gateway_core",
+      "name": "Central API Gateway",
+      "type": "external",
+      "category": "PROCESS",
+      "group": "sys-gateway",
+      "location": "https://api.company.com/v1",
+      "description": "AWS API Gateway routing traffic, enforcing rate limiting and validating JWT signatures.",
+      "sublabel": "Amazon API Gateway",
+      "brand": "aws-api-gateway",
+      "metadata": {
+        "sla": "< 15ms overhead",
+        "slo": "99.999%",
+        "criticality": "Critical",
+        "owner": "@platform-team"
+      },
+      "volumetry": {
+        "throughput": "50,000 req/sec",
+        "records_per_day": "4.3B requests/day"
+      }
+    },
+    {
+      "id": "svc_order_processor",
+      "name": "Order Orchestrator",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-services",
+      "location": "k8s://production/order-service",
+      "description": "Containerized checkout microservice orchestrating payments, cart state, and order lifecycle.",
+      "sublabel": "Node.js / TypeScript",
+      "brand": "node-js",
+      "metadata": {
+        "sla": "< 80ms p99",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@checkout-squad"
+      },
+      "compute": {
+        "engine": "EKS Kubernetes Pods",
+        "sizing": "16x Pods (2 vCPU, 4GB RAM auto-scaled)",
+        "memory": "64 GB RAM cluster",
+        "rationale": "Microservice running in containerized Kubernetes cluster with Horizontal Pod Autoscaling."
+      }
+    },
+    {
+      "id": "db_aurora_orders",
+      "name": "Orders Aurora PostgreSQL",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-database",
+      "location": "aurora-orders.cluster-custom.us-east-1.rds.amazonaws.com:5432/orders",
+      "description": "ACID transactional store containing finalized orders, itemized receipts, and audit logs.",
+      "sublabel": "Aurora PostgreSQL Multi-AZ",
+      "brand": "postgresql",
+      "metadata": {
+        "sla": "< 5ms query p95",
+        "slo": "99.999%",
+        "criticality": "Critical",
+        "owner": "@dba-team"
+      },
+      "volumetry": {
+        "volume_per_day": "85 GB/day",
+        "records_per_day": "15M orders/day",
+        "retention": "7 years"
+      },
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "uuid",
+          "description": "Primary order identifier"
+        },
+        {
+          "name": "customer_id",
+          "type": "uuid",
+          "description": "Foreign key to customer profile"
+        },
+        {
+          "name": "order_status",
+          "type": "varchar(32)",
+          "description": "CREATED, AUTHORIZED, PAID, SHIPPED"
+        },
+        {
+          "name": "gross_amount",
+          "type": "decimal(12,2)",
+          "description": "Order gross total in USD"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "description": "UTC record timestamp"
+        }
+      ]
+    },
+    {
+      "id": "bus_order_events",
+      "name": "order-events-stream",
+      "type": "messagebus",
+      "category": "MESSAGING",
+      "group": "sys-messaging",
+      "location": "arn:aws:sns:us-east-1:123456789012:order-events",
+      "description": "SNS fan-out topic publishing verified order transactions to streaming consumers.",
+      "sublabel": "Amazon SNS Topic",
+      "brand": "aws-sns",
+      "metadata": {
+        "sla": "< 20ms delivery",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@data-platform"
+      },
+      "volumetry": {
+        "throughput": "25,000 msg/sec",
+        "volume_per_day": "65 GB/day"
+      }
+    },
+    {
+      "id": "queue_lake_buffer",
+      "name": "lakehouse-ingestion-fifo",
+      "type": "messagebus",
+      "category": "MESSAGING",
+      "group": "sys-messaging",
+      "location": "arn:aws:sqs:us-east-1:123456789012:lakehouse-ingestion.fifo",
+      "description": "SQS FIFO queue ensuring exactly-once ordered ingestion into data lake storage.",
+      "sublabel": "Amazon SQS FIFO Queue",
+      "brand": "aws-sqs",
+      "metadata": {
+        "sla": "100% deduplicated",
+        "criticality": "Critical",
+        "owner": "@data-eng"
+      },
+      "volumetry": {
+        "throughput": "25,000 msg/sec",
+        "retention": "14 days"
+      }
+    },
+    {
+      "id": "lake_s3_bronze",
+      "name": "raw-lakehouse-orders",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-lakehouse",
+      "location": "s3://company-lakehouse-bronze/events/orders/",
+      "description": "Bronze lake bucket storing append-only raw events in columnar snappy Parquet files.",
+      "sublabel": "Amazon S3 (Bronze)",
+      "brand": "aws-s3",
+      "metadata": {
+        "criticality": "Critical",
+        "owner": "@lakehouse-team"
+      },
+      "volumetry": {
+        "volume_per_day": "1.5 TB/day",
+        "records_per_day": "250M records/day",
+        "retention": "Infinite (Glacier 90d)"
+      },
+      "columns": [
+        {
+          "name": "event_id",
+          "type": "string",
+          "description": "Unique event UUID"
+        },
+        {
+          "name": "raw_payload",
+          "type": "string",
+          "description": "Raw JSON event body"
+        },
+        {
+          "name": "ingested_at",
+          "type": "timestamp",
+          "description": "Ingestion timestamp"
+        }
+      ]
+    },
+    {
+      "id": "job_glue_silver_etl",
+      "name": "glue-silver-dedup-job",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-lakehouse",
+      "location": "arn:aws:glue:us-east-1:123456789012:job/silver-dedup",
+      "description": "Serverless Spark job reading Bronze files, performing deduplication and schema conformance.",
+      "sublabel": "AWS Glue 4.0 (Spark 3.3)",
+      "brand": "aws-glue",
+      "metadata": {
+        "sla": "30 min batch",
+        "criticality": "High",
+        "owner": "@data-eng"
+      },
+      "compute": {
+        "engine": "glue",
+        "sizing": "16 DPUs (G.2X Worker Type)",
+        "memory": "128 GB distributed RAM",
+        "rationale": "Glue chosen for auto-scaling serverless execution during periodic batch ingestion."
+      }
+    },
+    {
+      "id": "table_iceberg_silver",
+      "name": "silver_orders_conformed",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-lakehouse",
+      "location": "glue_catalog.lakehouse_silver.orders",
+      "description": "ACID-compliant Iceberg table partitioned by order_date with schema evolution.",
+      "sublabel": "Apache Iceberg Silver",
+      "brand": "aws-glue",
+      "metadata": {
+        "sla": "Fresh within 45 min",
+        "slo": "99.9%",
+        "criticality": "Critical",
+        "owner": "@analytics-eng"
+      },
+      "volumetry": {
+        "volume_per_day": "900 GB/day compressed",
+        "records_per_day": "15M rows/day"
+      },
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "description": "Canonical order ID",
+          "source_columns": [
+            "lake_s3_bronze.event_id"
+          ]
+        },
+        {
+          "name": "customer_id",
+          "type": "string",
+          "description": "Customer identifier"
+        },
+        {
+          "name": "gross_amount",
+          "type": "decimal(12,2)",
+          "description": "Order total amount in USD"
+        },
+        {
+          "name": "order_status",
+          "type": "string",
+          "description": "Cleaned order status"
+        },
+        {
+          "name": "order_date",
+          "type": "date",
+          "description": "Partitioning date key (YYYY-MM-DD)"
+        }
+      ]
+    },
+    {
+      "id": "proc_emr_features",
+      "name": "emr-feature-engineering",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-analytics",
+      "location": "arn:aws:emr:us-east-1:123456789012:cluster/j-EMRFEATURESTORE",
+      "description": "Distributed Spark cluster computing user propensity features, RFM scores, and fraud graphs.",
+      "sublabel": "Amazon EMR 7.1 (Spark)",
+      "brand": "aws-emr",
+      "metadata": {
+        "sla": "Nightly 2h run",
+        "criticality": "High",
+        "owner": "@data-science"
+      },
+      "compute": {
+        "engine": "emr",
+        "sizing": "1x r5.2xlarge Primary + 16x r5.4xlarge Task Nodes",
+        "memory": "2,048 GB RAM cluster total",
+        "rationale": "EMR selected for large cross-table shuffle and low Spot instance compute pricing."
+      }
+    },
+    {
+      "id": "proc_databricks_marts",
+      "name": "databricks-gold-curation",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-analytics",
+      "location": "jobs://databricks.us-east-1/gold-curation-pipeline",
+      "description": "Delta Live Tables pipeline with Photon engine generating executive financial and cohort models.",
+      "sublabel": "Databricks Photon Engine",
+      "brand": "databricks",
+      "metadata": {
+        "sla": "Daily by 05:00 UTC",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@analytics-eng"
+      },
+      "compute": {
+        "engine": "databricks",
+        "sizing": "Databricks SQL Large / Photon Vectorized Engine",
+        "rationale": "Photon engine selected for sub-second aggregations and optimized Delta cache."
+      }
+    },
+    {
+      "id": "table_delta_gold_kpis",
+      "name": "gold_daily_business_kpis",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-analytics",
+      "location": "unity_catalog.gold.business_kpis",
+      "description": "Curated Gold metrics table containing Daily GMV, Active Buyers, Churn Rate, and Retention.",
+      "sublabel": "Delta Lake Gold Mart",
+      "brand": "databricks",
+      "metadata": {
+        "sla": "Ready by 05:30 UTC",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@executive-analytics"
+      },
+      "volumetry": {
+        "volume_per_day": "120 GB/day",
+        "retention": "10 years"
+      },
+      "columns": [
+        {
+          "name": "report_date",
+          "type": "date",
+          "description": "Reporting metric day"
+        },
+        {
+          "name": "daily_gmv_usd",
+          "type": "decimal(18,2)",
+          "description": "Gross Merchandise Value",
+          "source_columns": [
+            "table_iceberg_silver.gross_amount"
+          ]
+        },
+        {
+          "name": "total_orders",
+          "type": "integer",
+          "description": "Finalized order count",
+          "source_columns": [
+            "table_iceberg_silver.order_id"
+          ]
+        },
+        {
+          "name": "active_buyers_count",
+          "type": "integer",
+          "description": "Distinct purchasing user count"
+        },
+        {
+          "name": "average_order_value",
+          "type": "decimal(10,2)",
+          "description": "Calculated AOV metric"
+        }
+      ]
+    },
+    {
+      "id": "wh_snowflake_analytics",
+      "name": "Snowflake Analytics Hub",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-reporting",
+      "location": "marketplace_dw.analytics.marts",
+      "description": "Cloud data warehouse powering executive dashboards, ad-hoc BI querying, and Tableau models.",
+      "sublabel": "Snowflake Data Cloud",
+      "brand": "snowflake",
+      "metadata": {
+        "sla": "Available 24/7",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@bi-team"
+      }
+    },
+    {
+      "id": "dash_grafana_telemetry",
+      "name": "Grafana SLA Dashboard",
+      "type": "frontend",
+      "category": "PROCESS",
+      "group": "sys-reporting",
+      "location": "https://telemetry.company.com",
+      "description": "Real-time observability dashboard displaying service latency percentiles, queue lag, and error rates.",
+      "sublabel": "Grafana Enterprise",
+      "brand": "grafana",
+      "metadata": {
+        "sla": "< 1s latency",
+        "criticality": "High",
+        "owner": "@sre-team"
+      }
+    },
+    {
+      "id": "notif_ses_service",
+      "name": "Customer Notification Hub",
+      "type": "external",
+      "category": "MESSAGING",
+      "group": "sys-notifications",
+      "location": "arn:aws:ses:us-east-1:123456789012:identity/notifications.company.com",
+      "description": "Automated transactional email gateway sending purchase receipts, invoices, and tracking links.",
+      "sublabel": "Amazon SES",
+      "brand": "aws-ses",
+      "metadata": {
+        "sla": "< 30s delivery to inbox",
+        "criticality": "High",
+        "owner": "@crm-team"
+      },
+      "volumetry": {
+        "throughput": "5,000 emails/min",
+        "volume_per_day": "12M emails/day"
+      }
+    },
+    {
+      "id": "sec_vault_secrets",
+      "name": "AWS Secrets Manager",
+      "type": "security",
+      "category": "PROCESS",
+      "group": "sys-security",
+      "location": "arn:aws:secretsmanager:us-east-1:123456789012:secret:marketplace-keys",
+      "description": "Enterprise secrets engine managing dynamic database credentials and token rotation.",
+      "sublabel": "AWS Secrets Manager",
+      "brand": "aws-secrets-manager",
+      "metadata": {
+        "sla": "Rotated every 30 days",
+        "criticality": "Critical",
+        "owner": "@infosec-team"
+      }
+    },
+    {
+      "id": "orch_airflow_master",
+      "name": "Master Airflow DAG",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-orchestration",
+      "location": "mwaa.us-east-1.amazonaws.com/dags/dag_lakehouse_master",
+      "description": "Master workflow DAG orchestrating Bronze ingestion, Glue compaction, and Databricks Gold curation.",
+      "sublabel": "Apache Airflow 2.9 (MWAA)",
+      "brand": "apache-airflow",
+      "metadata": {
+        "sla": "Trigger: 02:00 UTC",
+        "criticality": "Critical",
+        "owner": "@data-platform"
+      },
+      "compute": {
+        "engine": "Airflow MWAA",
+        "sizing": "mw1.medium (2-10 workers)",
+        "rationale": "Scheduled cross-system DAG trigger and SLA monitoring."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "fe_ecommerce_web",
+      "target": "api_gateway_core"
+    },
+    {
+      "source": "svc_order_processor",
+      "target": "db_aurora_orders"
+    },
+    {
+      "source": "db_aurora_orders",
+      "target": "bus_order_events"
+    },
+    {
+      "source": "bus_order_events",
+      "target": "queue_lake_buffer"
+    },
+    {
+      "source": "queue_lake_buffer",
+      "target": "lake_s3_bronze"
+    },
+    {
+      "source": "lake_s3_bronze",
+      "target": "job_glue_silver_etl"
+    },
+    {
+      "source": "job_glue_silver_etl",
+      "target": "table_iceberg_silver"
+    },
+    {
+      "source": "table_iceberg_silver",
+      "target": "proc_emr_features"
+    },
+    {
+      "source": "proc_emr_features",
+      "target": "proc_databricks_marts"
+    },
+    {
+      "source": "proc_databricks_marts",
+      "target": "table_delta_gold_kpis"
+    },
+    {
+      "source": "wh_snowflake_analytics",
+      "target": "dash_grafana_telemetry"
+    },
+    {
+      "source": "bus_order_events",
+      "target": "notif_ses_service"
+    },
+    {
+      "source": "api_gateway_core",
+      "target": "sec_vault_secrets"
+    },
+    {
+      "source": "sec_vault_secrets",
+      "target": "svc_order_processor"
+    },
+    {
+      "source": "table_delta_gold_kpis",
+      "target": "orch_airflow_master"
+    },
+    {
+      "source": "orch_airflow_master",
+      "target": "wh_snowflake_analytics"
+    }
+  ]
+}

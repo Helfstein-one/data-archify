@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "dbt_version": "1.0.0"
+  },
+  "nodes": {
+    "model.jaffle_shop.stg_customers": {
+      "name": "stg_customers",
+      "resource_type": "model",
+      "schema": "jaffle_shop",
+      "original_file_path": "models/staging/stg_customers.sql",
+      "description": "Staged customer data.",
+      "meta": {
+        "owner": "@data-eng",
+        "criticality": "Medium",
+        "sla": "2h"
+      },
+      "columns": {
+        "customer_id": {
+          "type": "integer",
+          "description": "Primary key for customer"
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer's full name"
+        }
+      }
+    },
+    "model.jaffle_shop.stg_orders": {
+      "name": "stg_orders",
+      "resource_type": "model",
+      "schema": "jaffle_shop",
+      "original_file_path": "models/staging/stg_orders.sql",
+      "description": "Staged order data."
+    },
+    "model.jaffle_shop.customers": {
+      "name": "customers",
+      "resource_type": "model",
+      "schema": "jaffle_shop",
+      "original_file_path": "models/marts/customers.sql",
+      "description": "Final customer dimension table.",
+      "meta": {
+        "owner": "@analytics",
+        "criticality": "High",
+        "sla": "1h",
+        "slo": "99.9%"
+      },
+      "columns": {
+        "customer_id": {
+          "type": "integer",
+          "description": "Primary key",
+          "meta": {
+            "source_columns": ["model.jaffle_shop.stg_customers.customer_id"]
+          }
+        },
+        "first_order_date": {
+          "type": "date",
+          "description": "Date of first order",
+          "meta": {
+            "source_columns": ["model.jaffle_shop.stg_orders.order_date"]
+          }
+        },
+        "lifetime_value": {
+          "type": "decimal",
+          "description": "Total amount spent by customer"
+        }
+      }
+    }
+  },
+  "sources": {
+    "source.jaffle_shop.raw.customers": {
+      "name": "customers",
+      "resource_type": "source",
+      "schema": "raw",
+      "package_name": "jaffle_shop",
+      "original_file_path": "models/staging/schema.yml",
+      "database": "raw",
+      "meta": {
+        "owner": "@crm-team",
+        "criticality": "Critical",
+        "sla": "1h",
+        "slo": "99.95%"
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "description": "Unique customer ID from source CRM"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the customer"
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email address"
+        }
+      }
+    },
+    "source.jaffle_shop.raw.orders": {
+      "name": "orders",
+      "resource_type": "source",
+      "schema": "raw",
+      "package_name": "jaffle_shop",
+      "original_file_path": "models/staging/schema.yml",
+      "database": "raw",
+      "meta": {
+        "owner": "@order-platform",
+        "criticality": "High",
+        "sla": "30m"
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "description": "Order ID"
+        },
+        "user_id": {
+          "type": "integer",
+          "description": "Customer ID referencing customers.id"
+        },
+        "order_date": {
+          "type": "date",
+          "description": "Date order was placed"
+        },
+        "status": {
+          "type": "string",
+          "description": "Order status (placed, shipped, completed)"
+        }
+      }
+    }
+  },
+  "parent_map": {
+    "model.jaffle_shop.stg_customers": [
+      "source.jaffle_shop.raw.customers"
+    ],
+    "model.jaffle_shop.stg_orders": [
+      "source.jaffle_shop.raw.orders"
+    ],
+    "model.jaffle_shop.customers": [
+      "model.jaffle_shop.stg_customers",
+      "model.jaffle_shop.stg_orders"
+    ]
+  }
+}

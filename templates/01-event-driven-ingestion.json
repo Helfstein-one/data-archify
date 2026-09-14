@@ -1,0 +1,166 @@
+{
+  "nodes": [
+    {
+      "id": "ext_payment_gateway",
+      "name": "Payment Gateway API",
+      "type": "external",
+      "category": "MESSAGING",
+      "group": "sys-source",
+      "location": "https://api.gateway.payments/webhooks",
+      "description": "External payment and checkout provider sending real-time transactional webhooks.",
+      "sublabel": "REST Webhooks",
+      "volumetry": {
+        "throughput": "15,000 events/sec",
+        "volume_per_day": "35 GB/day",
+        "records_per_day": "120M events/day"
+      }
+    },
+    {
+      "id": "sns_order_events",
+      "name": "order-events-topic",
+      "type": "messagebus",
+      "category": "MESSAGING",
+      "group": "sys-messaging",
+      "location": "arn:aws:sns:us-east-1:123456789012:order-events-topic",
+      "description": "Central pub/sub topic for transactional events fan-out.",
+      "sublabel": "AWS SNS Topic",
+      "metadata": {
+        "sla": "< 50ms latency",
+        "slo": "99.99%",
+        "criticality": "Critical",
+        "owner": "@checkout-team"
+      },
+      "volumetry": {
+        "throughput": "15,000 msg/sec",
+        "volume_per_day": "35 GB/day",
+        "retention": "3 days"
+      },
+      "brand": "aws-sns"
+    },
+    {
+      "id": "sqs_order_queue",
+      "name": "orders-ingestion-queue",
+      "type": "messagebus",
+      "category": "MESSAGING",
+      "group": "sys-messaging",
+      "location": "arn:aws:sqs:us-east-1:123456789012:orders-ingestion-queue",
+      "description": "FIFO buffer queue to throttle and absorb traffic spikes prior to database ingestion.",
+      "sublabel": "AWS SQS FIFO",
+      "metadata": {
+        "sla": "100ms delivery",
+        "criticality": "Critical",
+        "owner": "@data-eng"
+      },
+      "volumetry": {
+        "throughput": "15,000 msg/sec",
+        "retention": "14 days",
+        "batch_window": "Max 10 msgs / batch"
+      },
+      "brand": "aws-sqs"
+    },
+    {
+      "id": "sqs_order_dlq",
+      "name": "orders-dead-letter-queue",
+      "type": "messagebus",
+      "category": "MESSAGING",
+      "group": "sys-messaging",
+      "location": "arn:aws:sqs:us-east-1:123456789012:orders-dlq",
+      "description": "Dead-letter queue capturing poisonous messages after 3 failed retries.",
+      "sublabel": "AWS SQS DLQ",
+      "volumetry": {
+        "retention": "14 days"
+      },
+      "brand": "aws-sqs"
+    },
+    {
+      "id": "lambda_stream_processor",
+      "name": "order-stream-transformer",
+      "type": "backend",
+      "category": "PROCESS",
+      "group": "sys-compute",
+      "location": "arn:aws:lambda:us-east-1:123456789012:function:order-stream-transformer",
+      "description": "Serverless event processor that validates schema, unpacks payloads, and writes Parquet batches.",
+      "sublabel": "AWS Lambda (Python 3.12)",
+      "metadata": {
+        "sla": "5 seconds per batch",
+        "criticality": "High",
+        "owner": "@data-platform"
+      },
+      "compute": {
+        "engine": "lambda",
+        "sizing": "512 MB memory, 10 concurrent workers",
+        "memory": "512 MB",
+        "rationale": "Lambda selected due to event-driven bursty nature and low execution duration (<300ms/batch)."
+      },
+      "brand": "aws-lambda"
+    },
+    {
+      "id": "s3_bronze_lake",
+      "name": "raw-lake-orders",
+      "type": "database",
+      "category": "DATASET",
+      "group": "sys-storage",
+      "location": "s3://company-lakehouse-raw/events/orders/",
+      "description": "Raw data lake partition storing validated micro-batch Parquet files.",
+      "sublabel": "Amazon S3 (Bronze)",
+      "metadata": {
+        "criticality": "Critical",
+        "owner": "@lakehouse-team"
+      },
+      "volumetry": {
+        "volume_per_day": "35 GB/day",
+        "retention": "Infinite (Glacier after 90d)"
+      },
+      "columns": [
+        {
+          "name": "order_id",
+          "type": "string",
+          "description": "UUID of the purchase order"
+        },
+        {
+          "name": "customer_id",
+          "type": "string",
+          "description": "Customer account identifier"
+        },
+        {
+          "name": "amount",
+          "type": "decimal(12,2)",
+          "description": "Total checkout value in USD"
+        },
+        {
+          "name": "event_timestamp",
+          "type": "timestamp",
+          "description": "UTC timestamp of the webhook event"
+        },
+        {
+          "name": "payload_json",
+          "type": "string",
+          "description": "Raw uncompressed payload for auditing"
+        }
+      ],
+      "brand": "aws-s3"
+    }
+  ],
+  "edges": [
+    {
+      "source": "ext_payment_gateway",
+      "target": "sns_order_events"
+    },
+    {
+      "source": "sns_order_events",
+      "target": "sqs_order_queue"
+    },
+    {
+      "source": "sqs_order_queue",
+      "target": "sqs_order_dlq"
+    },
+    {
+      "source": "sqs_order_queue",
+      "target": "lambda_stream_processor"
+    },
+    {
+      "source": "lambda_stream_processor",
+      "target": "s3_bronze_lake"
+    }
+  ]
+}
