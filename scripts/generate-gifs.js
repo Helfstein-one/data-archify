@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const GIFEncoder = require('gif-encoder-2');
@@ -14,6 +14,23 @@ function pngToRgba(pngBuffer) {
       resolve({ width: data.width, height: data.height, data: data.data });
     });
   });
+}
+
+function ensureHtml(inputFile, outputFile) {
+  console.log(`  Building demo HTML ${path.basename(outputFile)}...`);
+  if (inputFile.endsWith('manifest.json')) {
+    execSync(`node dist/index.js dbt --manifest "${inputFile}" --out "${outputFile}"`, { stdio: 'pipe' });
+  } else {
+    execSync(`node dist/index.js render --input "${inputFile}" --out "${outputFile}"`, { stdio: 'pipe' });
+  }
+}
+
+function cleanupTempHtml(outputFile) {
+  try {
+    if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+    const contractFile = outputFile.replace(/\.html$/, '_contracts.md');
+    if (fs.existsSync(contractFile)) fs.unlinkSync(contractFile);
+  } catch (_) {}
 }
 
 async function recordChromeInteraction({ url, actions, outputPath, width = 1100, height = 680, delay = 1200 }) {
@@ -215,253 +232,214 @@ async function generateTerminalGif() {
 
 /* ================================================================
    2. MEDALLION LAKEHOUSE GIF — Full data contract journey
-      Big picture → Airflow → Bronze → dbt Silver → Silver Table
-      (columns+lineage) → dbt Gold → Gold Marts → back to overview
    ================================================================ */
 
 async function generateMedallionGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-medallion.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_medallion.html');
+  const templatePath = path.resolve(__dirname, '../templates/03-medallion-lakehouse-orchestrated.json');
+  ensureHtml(templatePath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture overview
     resetView(),
-    // Extra frame at overview for emphasis
     { eval: '', wait: 600 },
-    // Frame 2: Airflow Orchestrator
     focusNode('airflow_orchestrator', 1200),
-    // Frame 3: Bronze CRM Users (with volumetry)
     focusNode('bronze_crm_users', 1400),
-    // Frame 4: dbt Silver Cleansing Process
     focusNode('dbt_silver_cleansing', 1200),
-    // Frame 5: Silver Customers — data contract + column lineage
     focusNode('silver_customers_cleaned', 1500),
-    // Frame 6: Scroll to see column lineage detail
     scrollPassport(55),
-    // Frame 7: dbt Gold Aggregation
     focusNode('dbt_gold_aggregation', 1200),
-    // Frame 8: Gold Marts KPIs — final table
     focusNode('gold_marts_kpis', 1400),
-    // Frame 9: Reset to big picture
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-medallion.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-medallion.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
 /* ================================================================
    3. EVENT-DRIVEN INGESTION GIF — Streaming architecture tour
-      Big picture → Payment Gateway → SNS Topic → SQS Queue →
-      SQS DLQ → Lambda (compute card) → S3 Bronze → overview
    ================================================================ */
 
 async function generateEventDrivenGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-event-driven.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_event.html');
+  const templatePath = path.resolve(__dirname, '../templates/01-event-driven-ingestion.json');
+  ensureHtml(templatePath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture — full streaming architecture at a glance
     resetView(),
     { eval: '', wait: 600 },
-    // Frame 2: Payment Gateway — external event source (15k events/sec)
     focusNode('ext_payment_gateway', 1200),
-    // Frame 3: SNS Order Events — fan-out topic with volumetry
     focusNode('sns_order_events', 1400),
-    // Frame 4: SQS Order Queue — FIFO queue with retention
     focusNode('sqs_order_queue', 1400),
-    // Frame 5: SQS Dead Letter Queue — error handling path
     focusNode('sqs_order_dlq', 1200),
-    // Frame 6: Lambda Processor — compute card (512 MB, 10 workers)
     focusNode('lambda_stream_processor', 1500),
-    // Frame 7: S3 Bronze Lake — storage destination with retention policy
     focusNode('s3_bronze_lake', 1400),
-    // Frame 8: Back to big picture
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-event-driven.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-event-driven.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
 /* ================================================================
    4. HEAVY PROCESSING LAKEHOUSE GIF — Compute-intensive pipeline
-      Big picture → S3 Bronze (12 TB/day) → Glue (12 DPUs) →
-      Iceberg Silver → EMR (2 TB RAM) → Databricks Photon →
-      Gold Delta KPIs → overview
    ================================================================ */
 
 async function generateHeavyProcessingGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-heavy-processing.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_heavy.html');
+  const templatePath = path.resolve(__dirname, '../templates/02-heavy-processing-lakehouse.json');
+  ensureHtml(templatePath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture — massive data pipeline overview
     resetView(),
     { eval: '', wait: 600 },
-    // Frame 2: S3 Bronze Store — 12 TB/day, 85M records/day
     focusNode('s3_bronze_store', 1400),
-    // Frame 3: Glue Compaction Job — 12 DPUs, 96 GB distributed RAM
     focusNode('glue_compaction_job', 1500),
-    // Frame 4: Iceberg Silver Table — 8 TB/day compressed
     focusNode('glue_iceberg_silver', 1400),
-    // Frame 5: EMR Spark Cluster — 16× r5.4xlarge, 2 TB RAM
     focusNode('emr_heavy_spark_cluster', 1500),
-    // Frame 6: Databricks Gold Pipeline — Photon acceleration
     focusNode('databricks_gold_pipeline', 1500),
-    // Frame 7: Delta Gold KPIs — final materialization
     focusNode('delta_gold_kpis', 1300),
-    // Frame 8: Back to big picture
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-heavy-processing.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-heavy-processing.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
 /* ================================================================
    5. DBT LINEAGE GIF — Bipartite Table ↔ SQL Process graph
-      Big picture → raw.customers source → stg_customers process →
-      stg_customers dataset (columns) → raw.orders source →
-      stg_orders process → customers Gold (lineage) → overview
    ================================================================ */
 
 async function generateDbtLineageGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-dbt.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_dbt.html');
+  const manifestPath = path.resolve(__dirname, '../tests/manifest.json');
+  ensureHtml(manifestPath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture — full bipartite dbt graph
     resetView(),
     { eval: '', wait: 600 },
-    // Frame 2: Raw Customers Source — origin data with columns
     focusNode('dataset_source.jaffle_shop.raw.customers', 1400),
-    // Frame 3: stg_customers SQL Process — transformation logic
     focusNode('process_model.jaffle_shop.stg_customers', 1300),
-    // Frame 4: stg_customers Dataset — conformed columns + lineage
     focusNode('dataset_model.jaffle_shop.stg_customers', 1500),
-    // Frame 5: Scroll to see column lineage detail
     scrollPassport(60),
-    // Frame 6: Raw Orders Source — order data with columns
     focusNode('dataset_source.jaffle_shop.raw.orders', 1400),
-    // Frame 7: stg_orders SQL Process
     focusNode('process_model.jaffle_shop.stg_orders', 1300),
-    // Frame 8: Customers Gold — final aggregated model with full lineage
     focusNode('dataset_model.jaffle_shop.customers', 1500),
-    // Frame 9: Back to big picture
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-dbt-lineage.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-dbt-lineage.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
 /* ================================================================
    6. ENTERPRISE FULL PLATFORM GIF — End-to-end full stack tour
-      Big picture → Storefront Web (Next.js) → API Gateway (AWS) →
-      Order Service (Node.js) → Aurora Orders (PostgreSQL) →
-      SNS Event Topic → SQS FIFO Queue → S3 Bronze → Glue Silver →
-      Iceberg Silver → EMR Spark → Databricks Gold →
-      Airflow MWAA → Snowflake Analytics → Grafana Observability →
-      SES Notifications → overview
    ================================================================ */
 
 async function generateEnterpriseFullPlatformGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/demo-enterprise-full-platform.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_enterprise.html');
+  const templatePath = path.resolve(__dirname, '../templates/04-enterprise-full-platform.json');
+  ensureHtml(templatePath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture overview
     resetView(),
     { eval: '', wait: 700 },
-    // Frame 2: Storefront Web App (Next.js 15)
     focusNode('fe_ecommerce_web', 1300),
-    // Frame 3: API Gateway
     focusNode('api_gateway_core', 1200),
-    // Frame 4: Order Processor (Microservice)
     focusNode('svc_order_processor', 1200),
-    // Frame 5: Aurora PostgreSQL Orders Database
     focusNode('db_aurora_orders', 1400),
-    // Frame 6: SQS Buffer Queue
     focusNode('queue_lake_buffer', 1200),
-    // Frame 7: S3 Bronze Lakehouse
     focusNode('lake_s3_bronze', 1300),
-    // Frame 8: Iceberg Silver Table
     focusNode('table_iceberg_silver', 1400),
-    // Frame 9: EMR Heavy Spark Processing
     focusNode('proc_emr_features', 1300),
-    // Frame 10: Databricks Gold Pipeline
     focusNode('proc_databricks_marts', 1300),
-    // Frame 11: Delta Lake Gold Marts (KPIs & Lineage)
     focusNode('table_delta_gold_kpis', 1400),
-    // Frame 12: Snowflake Data Cloud
     focusNode('wh_snowflake_analytics', 1300),
-    // Frame 13: Grafana Platform Observability
     focusNode('dash_grafana_telemetry', 1200),
-    // Frame 14: Return to Big Picture
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-enterprise-platform.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-enterprise-platform.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
+/* ================================================================
+   7. ENTERPRISE TREE ARCHITECTURE GIF — 25-node tree tour
+   ================================================================ */
+
 async function generateEnterpriseTreePlatformGif() {
-  const demoHtmlPath = path.resolve(__dirname, '../docs/05-enterprise-tree.html');
+  const demoHtmlPath = path.resolve(__dirname, '../docs/temp_demo_tree.html');
+  const templatePath = path.resolve(__dirname, '../templates/05-enterprise-tree-platform.json');
+  ensureHtml(templatePath, demoHtmlPath);
 
   const actions = [
-    // Frame 1: Big Picture overview of the 25-node Tree Architecture
     resetView(),
     { eval: '', wait: 700 },
-    // Frame 2: Branch A — OLTP Database
     focusNode('db_aurora_oltp', 1300),
-    // Frame 3: Branch B — Storefront Web App (Next.js 15)
     focusNode('fe_storefront_app', 1200),
-    // Frame 4: Central API Gateway
     focusNode('api_gateway_core', 1200),
-    // Frame 5: SQS FIFO Buffer
     focusNode('queue_sqs_events', 1200),
-    // Frame 6: Convergence — S3 Raw/Bronze Lakehouse
     focusNode('lake_s3_bronze', 1300),
-    // Frame 7: Cleansed Iceberg Silver Table & Data Contract
     focusNode('table_iceberg_silver', 1400),
-    // Frame 8: Branch 1 — Amazon EMR Heavy Spark Processing
     focusNode('proc_emr_spark', 1300),
-    // Frame 9: Branch 1 — Databricks Delta Lake Gold Marts
     focusNode('table_delta_gold_marts', 1400),
-    // Frame 10: Branch 2 — Apache Flink Real-time Engine
     focusNode('proc_flink_streaming', 1300),
-    // Frame 11: Branch 2 — DynamoDB Real-time Feature Store
     focusNode('store_dynamodb_features', 1300),
-    // Frame 12: Branch 3 — Airflow Master MWAA Orchestrator
     focusNode('orch_airflow_master', 1300),
-    // Frame 13: Branch 3 — Reverse ETL Sync Engine
     focusNode('svc_reverse_etl', 1200),
-    // Frame 14: Return to Big Picture Tree Overview
     resetView()
   ];
 
-  await recordChromeInteraction({
-    url: `file://${demoHtmlPath}`,
-    actions,
-    outputPath: path.resolve(__dirname, '../docs/assets/portal-enterprise-tree.gif'),
-    width: 1100, height: 680, delay: 1350
-  });
+  try {
+    await recordChromeInteraction({
+      url: `file://${demoHtmlPath}`,
+      actions,
+      outputPath: path.resolve(__dirname, '../docs/assets/portal-enterprise-tree.gif'),
+      width: 1100, height: 680, delay: 1350
+    });
+  } finally {
+    cleanupTempHtml(demoHtmlPath);
+  }
 }
 
 /* ================================================================
